@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Admin DTR Panel</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f0f2f5;
+      margin: 0;
+      padding: 20px;
+    }
+    h1 {
+      text-align: center;
+    }
+    .link-box {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+    .link-box input {
+      width: 80%;
+      padding: 8px;
+      font-size: 14px;
+    }
+    .link-box button {
+      padding: 8px 12px;
+      font-size: 14px;
+      cursor: pointer;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: white;
+    }
+    th, td {
+      border: 1px solid #ddd;
+      padding: 8px;
+      text-align: center;
+    }
+    th {
+      background: #4CAF50;
+      color: white;
+    }
+    #qrCode {
+      display: block;
+      margin: 10px auto;
+    }
+  </style>
+</head>
+<body>
+
+<h1>Admin DTR Panel</h1>
+
+<div class="link-box">
+  <h3>Today’s Time-In Link</h3>
+  <input type="text" id="timeInLink" readonly>
+  <button onclick="copyLink()">Copy</button>
+  <canvas id="qrCode"></canvas>
+</div>
+
+<h3>Today’s DTR Records</h3>
+<table id="dtrTable">
+  <thead>
+    <tr>
+      <th>Name</th>
+      <th>Time In</th>
+    </tr>
+  </thead>
+  <tbody></tbody>
+</table>
+
+<button onclick="window.print()">Print DTR</button>
+
+<!-- Firebase -->
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+  import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyBYYZrsZECXM2UpW4-38sGQLaPqAqkjSWI",
+    authDomain: "dtr-project-66048.firebaseapp.com",
+    databaseURL: "https://dtr-project-66048-default-rtdb.asia-southeast1.firebasedatabase.app",
+    projectId: "dtr-project-66048",
+    storageBucket: "dtr-project-66048.firebasestorage.app",
+    messagingSenderId: "271445506225",
+    appId: "1:271445506225:web:fcb04d0454e1302de14a90",
+    measurementId: "G-R22CLKSPCP"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db = getDatabase(app);
+
+  // Generate today's link
+  const today = new Date();
+  const dateStr = today.toISOString().split('T')[0];
+  const baseTimeInURL = "https://your-timein-repo.github.io/?date=" + dateStr;
+  document.getElementById("timeInLink").value = baseTimeInURL;
+
+  // Load today's DTR
+  const dtrRef = ref(db, "dtr_logs/" + dateStr);
+  onValue(dtrRef, (snapshot) => {
+    const tbody = document.querySelector("#dtrTable tbody");
+    tbody.innerHTML = "";
+    const data = snapshot.val();
+    if (data) {
+      Object.keys(data).forEach((name) => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `<td>${name}</td><td>${data[name].timeIn}</td>`;
+        tbody.appendChild(tr);
+      });
+    }
+  });
+
+  // Generate QR Code
+  import("https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js").then(QRCode => {
+    QRCode.toCanvas(document.getElementById("qrCode"), baseTimeInURL, { width: 150 }, function (error) {
+      if (error) console.error(error);
+    });
+  });
+
+  // Copy link
+  window.copyLink = function () {
+    const input = document.getElementById("timeInLink");
+    input.select();
+    document.execCommand("copy");
+    alert("Link copied to clipboard!");
+  }
+</script>
+
+</body>
+</html>
