@@ -1,274 +1,147 @@
-<!doctype html>
-<html lang="en">
+<!DOCTYPE html>
+<html>
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Admin — QR Time-In (Repo 2)</title>
-
-  <!-- styles -->
+  <meta charset="UTF-8">
+  <title>Admin DTR Panel</title>
   <style>
-    :root{--bg:#071427;--card:#0f1724;--accent:#06b6d4;color:#e6eef8}
-    body{margin:0;font-family:Inter,system-ui,Arial,Helvetica;background:linear-gradient(180deg,#071427,#061226);color:var(--card);min-height:100vh}
-    header{background:rgba(0,0,0,0.15);padding:12px 16px;color:var(--accent);display:flex;justify-content:space-between;align-items:center}
-    h1{margin:0;font-size:18px;color:#e6eef8}
-    .wrap{max-width:1100px;margin:18px auto;padding:12px}
-    .grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
-    @media(max-width:900px){.grid{grid-template-columns:1fr}}
-    .card{background:rgba(255,255,255,0.03);padding:14px;border-radius:12px;box-shadow:0 6px 20px rgba(0,0,0,0.6)}
-    #reader { width:100%; min-height:320px; display:flex;align-items:center;justify-content:center;background:#000;border-radius:8px;overflow:hidden }
-    .status{margin-top:8px;color:#9ca3af}
-    table{width:100%;border-collapse:collapse;margin-top:12px;background:transparent;color:#e6eef8}
-    th,td{padding:8px;border-bottom:1px solid rgba(255,255,255,0.04);text-align:left;font-size:13px}
-    th{background:rgba(255,255,255,0.02);color:#cbd5e1}
-    .btn{background:linear-gradient(90deg,var(--accent),#60a5fa);border:none;color:#021124;padding:8px 12px;border-radius:8px;cursor:pointer}
-    .muted{color:#94a3b8;font-size:13px}
-    .notice{padding:8px;border-radius:8px;background:rgba(255,255,255,0.02);margin-top:8px}
-    /* print */
-    @media print{
-      header, .btn, .status { display: none !important; }
-      body{background:white;color:black}
-      table, th, td{color:black;border:1px solid #999}
+    body {
+      font-family: Arial, sans-serif;
+      background: #121212;
+      color: white;
+      margin: 0;
+      padding: 0;
+      text-align: center;
+    }
+    header {
+      padding: 15px;
+      background: #1e1e1e;
+      font-size: 20px;
+      font-weight: bold;
+    }
+    #qr-reader {
+      width: 300px;
+      margin: 20px auto;
+    }
+    table {
+      width: 90%;
+      margin: 20px auto;
+      border-collapse: collapse;
+    }
+    th, td {
+      border: 1px solid #444;
+      padding: 8px;
+      text-align: center;
+    }
+    th {
+      background: #333;
+    }
+    tr:nth-child(even) {
+      background: #1e1e1e;
+    }
+    #status {
+      margin-top: 10px;
+      font-weight: bold;
     }
   </style>
+  <script src="https://unpkg.com/html5-qrcode"></script>
+  <script type="module">
+    // Firebase SDK
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+    import { getDatabase, ref, set, get, child } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 
-  <!-- libs -->
-  <script src="https://www.gstatic.com/firebasejs/11.0.1/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/11.0.1/firebase-database-compat.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/minified/html5-qrcode.min.js"></script>
+    // Your Firebase Config
+    const firebaseConfig = {
+      apiKey: "AIzaSyBYYZrsZECXM2UpW4-38sGQLaPqAqkjSWI",
+      authDomain: "dtr-project-66048.firebaseapp.com",
+      databaseURL: "https://dtr-project-66048-default-rtdb.asia-southeast1.firebasedatabase.app",
+      projectId: "dtr-project-66048",
+      storageBucket: "dtr-project-66048.firebasestorage.app",
+      messagingSenderId: "271445506225",
+      appId: "1:271445506225:web:fcb04d0454e1302de14a90",
+      measurementId: "G-R22CLKSPCP"
+    };
+
+    // Init Firebase
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+
+    const todayDate = new Date().toISOString().split("T")[0];
+
+    // Handle QR Scan
+    function onScanSuccess(decodedText) {
+      const userId = decodedText.trim();
+      logTimeIn(userId);
+    }
+
+    async function logTimeIn(userId) {
+      const timeNow = new Date().toLocaleTimeString();
+      const userPath = `users/${userId}/dtr/${todayDate}`;
+      const logPath = `dtr_logs/${todayDate}/${userId}`;
+
+      const dbRef = ref(db);
+      const snapshot = await get(child(dbRef, userPath));
+
+      if (snapshot.exists()) {
+        document.getElementById("status").textContent = `⚠ ${userId} already timed in today.`;
+        return;
+      }
+
+      await set(ref(db, userPath), { timeIn: timeNow });
+      await set(ref(db, logPath), { timeIn: timeNow });
+
+      document.getElementById("status").textContent = `✅ ${userId} timed in at ${timeNow}`;
+      loadTodayLogs();
+    }
+
+    // Load Today's Logs
+    async function loadTodayLogs() {
+      const dbRef = ref(db);
+      const snapshot = await get(child(dbRef, `dtr_logs/${todayDate}`));
+      const tbody = document.getElementById("logs-body");
+      tbody.innerHTML = "";
+
+      if (snapshot.exists()) {
+        const logs = snapshot.val();
+        Object.keys(logs).forEach(userId => {
+          const row = `<tr>
+            <td>${userId}</td>
+            <td>${logs[userId].timeIn}</td>
+          </tr>`;
+          tbody.innerHTML += row;
+        });
+      } else {
+        tbody.innerHTML = "<tr><td colspan='2'>No records today</td></tr>";
+      }
+    }
+
+    // Start QR Reader
+    window.onload = function () {
+      loadTodayLogs();
+      const html5QrCode = new Html5Qrcode("qr-reader");
+      html5QrCode.start(
+        { facingMode: "environment" },
+        { fps: 10, qrbox: 250 },
+        onScanSuccess
+      );
+    };
+  </script>
 </head>
 <body>
-  <header>
-    <h1>QR Time-In — Admin Panel</h1>
-    <div>
-      <button class="btn" onclick="printRecords()">Print Records</button>
-    </div>
-  </header>
+  <header>📋 Admin Daily Time Record Panel</header>
+  <div id="qr-reader"></div>
+  <div id="status">Scan a QR code...</div>
 
-  <div class="wrap">
-    <div class="grid">
-      <!-- Scanner Card -->
-      <div class="card">
-        <h2 style="margin:0;color:#e6eef8">Scanner (always on)</h2>
-        <div id="reader"></div>
-        <div id="scanStatus" class="status muted">Initializing camera...</div>
-        <div id="lastAction" class="notice muted" style="display:none"></div>
-      </div>
-
-      <!-- History Card -->
-      <div class="card">
-        <h2 style="margin:0;color:#e6eef8">Full History (live)</h2>
-        <div class="muted">Shows all time-ins across users (newest first)</div>
-        <table id="historyTable" aria-live="polite">
-          <thead>
-            <tr><th>Date</th><th>Time</th><th>Name</th><th>Email</th><th>UID</th></tr>
-          </thead>
-          <tbody id="historyBody">
-            <tr><td colspan="5" class="muted">Loading…</td></tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
-  </div>
-
-<script>
-  /* ====== FIREBASE CONFIG (same as Repo 1) ====== */
-  const firebaseConfig = {
-    apiKey: "AIzaSyBYYZrsZECXM2UpW4-38sGQLaPqAqkjSWI",
-    authDomain: "dtr-project-66048.firebaseapp.com",
-    databaseURL: "https://dtr-project-66048-default-rtdb.asia-southeast1.firebasedatabase.app",
-    projectId: "dtr-project-66048",
-    storageBucket: "dtr-project-66048.appspot.com",
-    messagingSenderId: "271445506225",
-    appId: "1:271445506225:web:fcb04d0454e1302de14a90",
-    measurementId: "G-R22CLKSPCP"
-  };
-  firebase.initializeApp(firebaseConfig);
-  const db = firebase.database();
-  /* ============================================ */
-
-  /* Helpers */
-  function todayYMD(d = new Date()){
-    const pad = n=> n<10?('0'+n):n;
-    return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
-  }
-  function timeHMS(d = new Date()){
-    const pad = n=> n<10?('0'+n):n;
-    return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
-  }
-  function showStatus(text, isError=false){
-    const el = document.getElementById('scanStatus');
-    el.textContent = text;
-    el.style.color = isError? '#ffb4b4' : '#9ca3af';
-  }
-  function showLastAction(text){
-    const el = document.getElementById('lastAction');
-    el.style.display = text? 'block':'none';
-    el.textContent = text;
-  }
-
-  /* Start QR scanner (always-on). Picks rear camera when available. */
-  async function startScanner(){
-    const readerId = 'reader';
-    const el = document.getElementById(readerId);
-    el.innerHTML = ''; // clear container
-
-    try {
-      const cameras = await Html5Qrcode.getCameras();
-      if (!cameras || cameras.length === 0) {
-        showStatus('No camera found.', true);
-        return;
-      }
-
-      // Select back camera on mobile devices (usually last), else front or first camera
-      let cameraId = cameras[0].id; // default to first
-      if (cameras.length > 1) {
-        // Use environment facing (rear) camera if available
-        const backCamera = cameras.find(cam => /back|rear|environment/gi.test(cam.label));
-        if (backCamera) {
-          cameraId = backCamera.id;
-        } else {
-          // fallback to last camera (usually rear)
-          cameraId = cameras[cameras.length -1].id;
-        }
-      }
-
-      showStatus('Starting camera...');
-
-      const config = {
-        fps: 10,
-        qrbox: window.innerWidth < 600 ? 250 : 300,
-        aspectRatio: 1.333,
-        disableFlip: false
-      };
-
-      const html5QrCode = new Html5Qrcode(readerId, { verbose: false });
-
-      await html5QrCode.start(
-        cameraId,
-        config,
-        qrMessage => {
-          handleScan(qrMessage);
-        },
-        errorMessage => {
-          // optionally log decode errors:
-          // console.log('QR decode error:', errorMessage);
-        }
-      );
-
-      showStatus('Scanner active — point camera to user QR');
-
-    } catch (err) {
-      console.error('Scanner start error', err);
-      if (err.name === 'NotAllowedError' || (err.message && err.message.toLowerCase().includes('permission'))) {
-        showStatus('Camera permission denied. Please allow camera access.', true);
-      } else if (err.name === 'NotFoundError') {
-        showStatus('No camera device found.', true);
-      } else {
-        showStatus('Camera error: ' + (err.message || err), true);
-      }
-    }
-  }
-
-  /* Handle a QR scan */
-  let lastScanCooldown = {}; // simple debounce per uid for a few seconds
-  async function handleScan(scanned){
-    // the QR payload should be UID from Repo1
-    const uid = (''+scanned).trim();
-    if(!uid) return;
-    // avoid processing same uid repeatedly in short time
-    if(lastScanCooldown[uid] && (Date.now() - lastScanCooldown[uid] < 3000)) return;
-    lastScanCooldown[uid] = Date.now();
-
-    showStatus('Processing scan...');
-    try{
-      // read user profile from DB (users/{uid}/profile)
-      const profSnap = await db.ref('users/' + uid + '/profile').get();
-      if(!profSnap.exists()){
-        showStatus('QR not registered (UID not found).', true);
-        showLastAction(`Unregistered QR: ${uid}`);
-        return;
-      }
-      const profile = profSnap.val();
-      const name = profile.name || 'Unknown';
-      const email = profile.email || '—';
-      const date = todayYMD();
-      const time = timeHMS();
-
-      // check duplicate: users/{uid}/dtr/{date}
-      const userDtrRef = db.ref(`users/${uid}/dtr/${date}`);
-      const dtrSnap = await userDtrRef.get();
-      if(dtrSnap.exists()){
-        showStatus('Already timed in today.');
-        showLastAction(`Already timed in: ${name} (${email}) — ${date} ${dtrSnap.val().timeIn}`);
-        return;
-      }
-
-      // prepare record
-      const record = {
-        uid, name, email, date, time, ts: Date.now()
-      };
-
-      // write both:
-      // 1) users/{uid}/dtr/{date} = record
-      // 2) timeIns/{date}/{uid} = record (admin view by date)
-      await userDtrRef.set({ timeIn: time, ts: record.ts });
-      await db.ref(`timeIns/${date}/${uid}`).set(record);
-
-      showStatus('Time-In recorded ✔');
-      showLastAction(`Recorded: ${name} (${email}) — ${date} ${time}`);
-    }catch(err){
-      console.error('handleScan error', err);
-      showStatus('Error saving record: ' + (err.message||err), true);
-    }
-  }
-
-  /* Live history listener (listen to all timeIns) */
-  function listenHistory(){
-    const tbody = document.getElementById('historyBody');
-    // We will listen to the whole timeIns tree and render flattened list sorted by ts desc
-    const rootRef = db.ref('timeIns');
-    rootRef.on('value', snap => {
-      const all = [];
-      snap.forEach(dateSnap => {
-        const date = dateSnap.key;
-        dateSnap.forEach(uidSnap => {
-          const rec = uidSnap.val();
-          all.push(rec);
-        });
-      });
-      // sort by timestamp desc
-      all.sort((a,b)=> (b.ts||0) - (a.ts||0));
-      // render
-      if(all.length === 0){
-        tbody.innerHTML = `<tr><td colspan="5" class="muted">No records yet</td></tr>`;
-        return;
-      }
-      tbody.innerHTML = all.map(r => `<tr>
-        <td>${r.date}</td>
-        <td>${r.time}</td>
-        <td>${escapeHtml(r.name)}</td>
-        <td>${escapeHtml(r.email)}</td>
-        <td>${escapeHtml(r.uid)}</td>
-      </tr>`).join('');
-    });
-  }
-
-  /* Print table */
-  function printRecords(){
-    window.print();
-  }
-
-  /* small helper to escape html */
-  function escapeHtml(s){ return (s||'').toString().replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;'); }
-
-  /* Wait for DOM and scripts to load before starting */
-  window.addEventListener('DOMContentLoaded', () => {
-    startScanner();
-    listenHistory();
-  });
-
-  /* expose printRecords for button */
-  window.printRecords = printRecords;
-</script>
+  <h2>Today's Logs</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>User ID</th>
+        <th>Time In</th>
+      </tr>
+    </thead>
+    <tbody id="logs-body">
+      <tr><td colspan="2">Loading...</td></tr>
+    </tbody>
+  </table>
 </body>
 </html>
