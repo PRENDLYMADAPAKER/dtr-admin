@@ -110,33 +110,62 @@ function showLastAction(text){
 async function startScanner(){
   const readerId = 'reader';
   const el = document.getElementById(readerId);
-  el.innerHTML = ''; // ensure empty container
+  el.innerHTML = ''; // clear container
 
-  try{
+  try {
     const cameras = await Html5Qrcode.getCameras();
-    let cameraId = null;
-    if(cameras && cameras.length){
-      // prefer back camera (often last item), else first
-      cameraId = cameras.length>1 ? cameras[cameras.length-1].id : cameras[0].id;
+    if (!cameras || cameras.length === 0) {
+      showStatus('No camera found.', true);
+      return;
     }
+
+    // Select back camera on mobile devices (usually last), else front or first camera
+    let cameraId = cameras[0].id; // default to first
+    if (cameras.length > 1) {
+      // Use environment facing (rear) camera if available
+      const backCamera = cameras.find(cam => /back|rear|environment/gi.test(cam.label));
+      if (backCamera) {
+        cameraId = backCamera.id;
+      } else {
+        // fallback to last camera (usually rear)
+        cameraId = cameras[cameras.length -1].id;
+      }
+    }
+
     showStatus('Starting camera...');
+
+    const config = {
+      fps: 10,
+      qrbox: window.innerWidth < 600 ? 250 : 300,
+      aspectRatio: 1.333,
+      disableFlip: false
+    };
+
     const html5QrCode = new Html5Qrcode(readerId, { verbose: false });
 
     await html5QrCode.start(
       cameraId,
-      { fps: 10, qrbox: (window.innerWidth < 600 ? 200 : 300) },
+      config,
       qrMessage => {
-        // qrMessage is the scanned string (we expect UID)
         handleScan(qrMessage);
       },
       errorMessage => {
-        // ignore frequent decode errors
+        // You can optionally log decode errors here
+        // console.log('QR decode error:', errorMessage);
       }
     );
+
     showStatus('Scanner active — point camera to user QR');
-  }catch(err){
+
+  } catch (err) {
     console.error('Scanner start error', err);
-    showStatus('Camera error: ' + (err.message||err), true);
+    if (err.name === 'NotAllowedError' || (err.message && err.message.toLowerCase().includes('permission'))) {
+      showStatus('Camera permission denied. Please allow camera access.', true);
+    } else if (err.name === 'NotFoundError') {
+      showStatus('No camera device found.', true);
+    } else {
+      showStatus('Camera error: ' + (err.message || err), true);
+    }
   }
 }
 
