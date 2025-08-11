@@ -3,130 +3,145 @@
 <head>
   <meta charset="UTF-8">
   <title>Admin DTR Panel</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
   <style>
     body {
       font-family: Arial, sans-serif;
-      background: #f0f2f5;
+      background: #121212;
+      color: white;
       margin: 0;
-      padding: 20px;
-    }
-    h1 {
+      padding: 0;
       text-align: center;
     }
-    .link-box {
-      text-align: center;
-      margin-bottom: 20px;
+    header {
+      padding: 15px;
+      background: #1e1e1e;
+      font-size: 20px;
+      font-weight: bold;
     }
-    .link-box input {
-      width: 80%;
-      padding: 8px;
-      font-size: 14px;
-    }
-    .link-box button {
-      padding: 8px 12px;
-      font-size: 14px;
-      cursor: pointer;
+    #qr-reader {
+      width: 300px;
+      margin: 20px auto;
     }
     table {
-      width: 100%;
+      width: 90%;
+      margin: 20px auto;
       border-collapse: collapse;
-      background: white;
     }
     th, td {
-      border: 1px solid #ddd;
+      border: 1px solid #444;
       padding: 8px;
       text-align: center;
     }
     th {
-      background: #4CAF50;
-      color: white;
+      background: #333;
     }
-    #qrCode {
-      display: block;
-      margin: 10px auto;
+    tr:nth-child(even) {
+      background: #1e1e1e;
+    }
+    #status {
+      margin-top: 10px;
+      font-weight: bold;
     }
   </style>
+  <script src="https://unpkg.com/html5-qrcode"></script>
+  <script type="module">
+    // Firebase SDK
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+    import { getDatabase, ref, set, get, child } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+
+    // Your Firebase Config
+    const firebaseConfig = {
+      apiKey: "AIzaSyBYYZrsZECXM2UpW4-38sGQLaPqAqkjSWI",
+      authDomain: "dtr-project-66048.firebaseapp.com",
+      databaseURL: "https://dtr-project-66048-default-rtdb.asia-southeast1.firebasedatabase.app",
+      projectId: "dtr-project-66048",
+      storageBucket: "dtr-project-66048.firebasestorage.app",
+      messagingSenderId: "271445506225",
+      appId: "1:271445506225:web:fcb04d0454e1302de14a90",
+      measurementId: "G-R22CLKSPCP"
+    };
+
+    // Init Firebase
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+
+    const todayDate = new Date().toISOString().split("T")[0];
+
+    // Handle QR Scan
+    function onScanSuccess(decodedText) {
+      const userId = decodedText.trim();
+      logTimeIn(userId);
+    }
+
+    async function logTimeIn(userId) {
+      const timeNow = new Date().toLocaleTimeString();
+      const userPath = `users/${userId}/dtr/${todayDate}`;
+      const logPath = `dtr_logs/${todayDate}/${userId}`;
+
+      const dbRef = ref(db);
+      const snapshot = await get(child(dbRef, userPath));
+
+      if (snapshot.exists()) {
+        document.getElementById("status").textContent = `⚠ ${userId} already timed in today.`;
+        return;
+      }
+
+      await set(ref(db, userPath), { timeIn: timeNow });
+      await set(ref(db, logPath), { timeIn: timeNow });
+
+      document.getElementById("status").textContent = `✅ ${userId} timed in at ${timeNow}`;
+      loadTodayLogs();
+    }
+
+    // Load Today's Logs
+    async function loadTodayLogs() {
+      const dbRef = ref(db);
+      const snapshot = await get(child(dbRef, `dtr_logs/${todayDate}`));
+      const tbody = document.getElementById("logs-body");
+      tbody.innerHTML = "";
+
+      if (snapshot.exists()) {
+        const logs = snapshot.val();
+        Object.keys(logs).forEach(userId => {
+          const row = `<tr>
+            <td>${userId}</td>
+            <td>${logs[userId].timeIn}</td>
+          </tr>`;
+          tbody.innerHTML += row;
+        });
+      } else {
+        tbody.innerHTML = "<tr><td colspan='2'>No records today</td></tr>";
+      }
+    }
+
+    // Start QR Reader
+    window.onload = function () {
+      loadTodayLogs();
+      const html5QrCode = new Html5Qrcode("qr-reader");
+      html5QrCode.start(
+        { facingMode: "environment" },
+        { fps: 10, qrbox: 250 },
+        onScanSuccess
+      );
+    };
+  </script>
 </head>
 <body>
+  <header>📋 Admin Daily Time Record Panel</header>
+  <div id="qr-reader"></div>
+  <div id="status">Scan a QR code...</div>
 
-<h1>Admin DTR Panel</h1>
-
-<div class="link-box">
-  <h3>Today’s Time-In Link</h3>
-  <input type="text" id="timeInLink" readonly>
-  <button onclick="copyLink()">Copy</button>
-  <canvas id="qrCode"></canvas>
-</div>
-
-<h3>Today’s DTR Records</h3>
-<table id="dtrTable">
-  <thead>
-    <tr>
-      <th>Name</th>
-      <th>Time In</th>
-    </tr>
-  </thead>
-  <tbody></tbody>
-</table>
-
-<button onclick="window.print()">Print DTR</button>
-
-<!-- Firebase -->
-<script type="module">
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-  import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
-
-  const firebaseConfig = {
-    apiKey: "AIzaSyBYYZrsZECXM2UpW4-38sGQLaPqAqkjSWI",
-    authDomain: "dtr-project-66048.firebaseapp.com",
-    databaseURL: "https://dtr-project-66048-default-rtdb.asia-southeast1.firebasedatabase.app",
-    projectId: "dtr-project-66048",
-    storageBucket: "dtr-project-66048.firebasestorage.app",
-    messagingSenderId: "271445506225",
-    appId: "1:271445506225:web:fcb04d0454e1302de14a90",
-    measurementId: "G-R22CLKSPCP"
-  };
-
-  const app = initializeApp(firebaseConfig);
-  const db = getDatabase(app);
-
-  // Generate today's link
-  const today = new Date();
-  const dateStr = today.toISOString().split('T')[0];
-  const baseTimeInURL = "https://prendlymadapaker.github.io/dtr-timein/" + dateStr;
-  document.getElementById("timeInLink").value = baseTimeInURL;
-
-  // Load today's DTR
-  const dtrRef = ref(db, "dtr_logs/" + dateStr);
-  onValue(dtrRef, (snapshot) => {
-    const tbody = document.querySelector("#dtrTable tbody");
-    tbody.innerHTML = "";
-    const data = snapshot.val();
-    if (data) {
-      Object.keys(data).forEach((name) => {
-        const tr = document.createElement("tr");
-        tr.innerHTML = `<td>${name}</td><td>${data[name].timeIn}</td>`;
-        tbody.appendChild(tr);
-      });
-    }
-  });
-
-  // Generate QR Code
-  import("https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js").then(QRCode => {
-    QRCode.toCanvas(document.getElementById("qrCode"), baseTimeInURL, { width: 150 }, function (error) {
-      if (error) console.error(error);
-    });
-  });
-
-  // Copy link
-  window.copyLink = function () {
-    const input = document.getElementById("timeInLink");
-    input.select();
-    document.execCommand("copy");
-    alert("Link copied to clipboard!");
-  }
-</script>
-
+  <h2>Today's Logs</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>User ID</th>
+        <th>Time In</th>
+      </tr>
+    </thead>
+    <tbody id="logs-body">
+      <tr><td colspan="2">Loading...</td></tr>
+    </tbody>
+  </table>
 </body>
 </html>
