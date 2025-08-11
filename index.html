@@ -1,41 +1,229 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <title>QR Code Scanner Test</title>
-  <!-- Correct script URL from jsdelivr CDN -->
-  <script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/minified/html5-qrcode.min.js"></script>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Admin DTR Panel with ZXing QR Scanner</title>
+<style>
+  body {
+    font-family: Arial, sans-serif;
+    background: #121212;
+    color: white;
+    margin: 0; padding: 0;
+    text-align: center;
+  }
+  header {
+    padding: 15px;
+    background: #1e1e1e;
+    font-size: 22px;
+    font-weight: bold;
+  }
+  #video {
+    width: 320px;
+    height: 240px;
+    margin: 20px auto;
+    border-radius: 8px;
+    background: black;
+  }
+  #status {
+    margin: 10px;
+    font-weight: bold;
+    height: 24px;
+  }
+  table {
+    width: 90%;
+    margin: 20px auto;
+    border-collapse: collapse;
+  }
+  th, td {
+    border: 1px solid #444;
+    padding: 8px;
+    text-align: center;
+  }
+  th {
+    background: #333;
+  }
+  tr:nth-child(even) {
+    background: #1e1e1e;
+  }
+</style>
 </head>
 <body>
-  <h2 style="text-align:center;">QR Code Scanner</h2>
-  <div id="reader" style="width:300px; margin:auto;"></div>
+<header>📋 Admin Daily Time Record Panel</header>
+<video id="video" muted playsinline></video>
+<div id="status">Initializing camera...</div>
 
-  <script>
-    async function startScanner() {
-      try {
-        const cameras = await Html5Qrcode.getCameras();
-        if (cameras.length === 0) {
-          alert("No cameras found on this device.");
-          return;
-        }
-        const cameraId = cameras[0].id;
-        const html5QrCode = new Html5Qrcode("reader");
+<h2>Today's Logs</h2>
+<table>
+  <thead>
+    <tr><th>User ID</th><th>Time In</th></tr>
+  </thead>
+  <tbody id="logs-body">
+    <tr><td colspan="2">Loading...</td></tr>
+  </tbody>
+</table>
 
-        await html5QrCode.start(
-          cameraId,
-          { fps: 10, qrbox: 250 },
-          (decodedText) => {
-            alert("QR Code detected: " + decodedText);
-            html5QrCode.stop();
-          }
-        );
-      } catch (err) {
-        alert("Error starting camera: " + err);
-      }
+<!-- ZXing library -->
+<script type="module">
+  import { BrowserMultiFormatReader } from 'https://cdn.jsdelivr.net/npm/@zxing/library@0.19.1/esm/index.min.js';
+
+  // Firebase SDK
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+  import { getDatabase, ref, set, get, child } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+
+  // Firebase config (your project)
+  const firebaseConfig = {
+    apiKey: "AIzaSyBYYZrsZECXM2UpW4-38sGQLaPqAqkjSWI",
+    authDomain: "dtr-project-66048.firebaseapp.com",
+    databaseURL: "https://dtr-project-66048-default-rtdb.asia-southeast1.firebasedatabase.app",
+    projectId: "dtr-project-66048",
+    storageBucket: "dtr-project-66048.appspot.com",
+    messagingSenderId: "271445506225",
+    appId: "1:271445506225:web:fcb04d0454e1302de14a90",
+    measurementId: "G-R22CLKSPCP"
+  };
+
+  // Initialize Firebase
+  const app = initializeApp(firebaseConfig);
+  const db = getDatabase(app);
+
+  const videoElement = document.getElementById('video');
+  const statusEl = document.getElementById('status');
+  const logsBody = document.getElementById('logs-body');
+
+  // Date string helper YYYY-MM-DD
+  function todayYMD() {
+    const d = new Date();
+    const pad = n => n < 10 ? '0' + n : n;
+    return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+  }
+
+  // Time string helper HH:MM:SS
+  function timeHMS() {
+    const d = new Date();
+    const pad = n => n < 10 ? '0' + n : n;
+    return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+  }
+
+  // Escape HTML helper for safe display
+  function escapeHtml(s) {
+    return (s||'').toString().replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  // Load today logs and render table
+  async function loadTodayLogs() {
+    const date = todayYMD();
+    const dbRef = ref(db);
+    const snapshot = await get(child(dbRef, `timeIns/${date}`));
+    logsBody.innerHTML = '';
+    if (snapshot.exists()) {
+      const logs = snapshot.val();
+      const rows = Object.values(logs)
+        .sort((a,b) => (b.ts || 0) - (a.ts || 0))
+        .map(r => `<tr><td>${escapeHtml(r.uid)}</td><td>${escapeHtml(r.time)}</td></tr>`)
+        .join('');
+      logsBody.innerHTML = rows;
+    } else {
+      logsBody.innerHTML = '<tr><td colspan="2">No records today</td></tr>';
     }
+  }
 
-    // Start scanner after page loads
-    window.addEventListener('load', startScanner);
-  </script>
+  // Log time-in to Firebase
+  async function logTimeIn(uid) {
+    const date = todayYMD();
+    const time = timeHMS();
+    const userDtrPath = `users/${uid}/dtr/${date}`;
+    const timeInsPath = `timeIns/${date}/${uid}`;
+
+    const dbRef = ref(db);
+
+    try {
+      const userSnap = await get(child(dbRef, `users/${uid}/profile`));
+      if (!userSnap.exists()) {
+        statusEl.textContent = `❌ User ID "${uid}" not registered.`;
+        return;
+      }
+
+      const profile = userSnap.val();
+
+      // Check if already timed in today
+      const dtrSnap = await get(child(dbRef, userDtrPath));
+      if (dtrSnap.exists()) {
+        statusEl.textContent = `⚠ Already timed in today: ${profile.name || uid}`;
+        return;
+      }
+
+      const record = {
+        uid,
+        name: profile.name || '',
+        email: profile.email || '',
+        date,
+        time,
+        ts: Date.now()
+      };
+
+      // Write time-in record to both paths
+      await set(ref(db, userDtrPath), { timeIn: time, ts: record.ts });
+      await set(ref(db, timeInsPath), record);
+
+      statusEl.textContent = `✅ Recorded time-in for ${profile.name || uid} at ${time}`;
+      await loadTodayLogs();
+
+    } catch (err) {
+      console.error('Log TimeIn Error:', err);
+      statusEl.textContent = 'Error saving record: ' + (err.message || err);
+    }
+  }
+
+  // Start ZXing scanner
+  async function startScanner() {
+    const codeReader = new BrowserMultiFormatReader();
+
+    try {
+      // List video input devices and pick environment facing (back) camera if possible
+      const videoInputDevices = await codeReader.listVideoInputDevices();
+      let chosenDeviceId = videoInputDevices[0]?.deviceId || null;
+      for (const device of videoInputDevices) {
+        if (device.label.toLowerCase().includes('back') || device.label.toLowerCase().includes('rear') || device.label.toLowerCase().includes('environment')) {
+          chosenDeviceId = device.deviceId;
+          break;
+        }
+      }
+
+      if (!chosenDeviceId) {
+        statusEl.textContent = '⚠ No camera found.';
+        return;
+      }
+
+      // Start decoding from selected device
+      await codeReader.decodeFromVideoDevice(chosenDeviceId, videoElement, (result, err) => {
+        if (result) {
+          const text = result.getText();
+          // Debounce same scans within 3 seconds
+          if (!startScanner.lastScanned || (Date.now() - startScanner.lastScanned > 3000) || startScanner.lastScannedText !== text) {
+            startScanner.lastScanned = Date.now();
+            startScanner.lastScannedText = text;
+            logTimeIn(text);
+          }
+        }
+        if (err && !(err.name === 'NotFoundException')) {
+          // You can log other errors here if you want
+          // console.log(err);
+        }
+      });
+
+      statusEl.textContent = '📷 Scanner started, point camera at QR code.';
+
+    } catch (error) {
+      console.error('Scanner start error:', error);
+      statusEl.textContent = 'Camera error: ' + (error.message || error);
+    }
+  }
+
+  window.onload = () => {
+    loadTodayLogs();
+    startScanner();
+  };
+</script>
 </body>
 </html>
