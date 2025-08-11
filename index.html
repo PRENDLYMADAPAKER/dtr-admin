@@ -2,34 +2,40 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>QR Code Scanner</title>
+  <title>QR Code Scanner Test</title>
+  <!-- Correct script URL from jsdelivr CDN -->
   <script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/minified/html5-qrcode.min.js"></script>
 </head>
 <body>
+  <h2 style="text-align:center;">QR Code Scanner</h2>
   <div id="reader" style="width:300px; margin:auto;"></div>
+
   <script>
-    // Wait until Html5Qrcode is loaded (it is because script is above)
     async function startScanner() {
       try {
         const cameras = await Html5Qrcode.getCameras();
-        if (!cameras.length) {
-          alert("No cameras found");
+        if (cameras.length === 0) {
+          alert("No cameras found on this device.");
           return;
         }
         const cameraId = cameras[0].id;
         const html5QrCode = new Html5Qrcode("reader");
-        await html5QrCode.start(cameraId, {
-          fps: 10,
-          qrbox: 250
-        }, qrCodeMessage => {
-          alert("QR Code detected: " + qrCodeMessage);
-          html5QrCode.stop();
-        });
+
+        await html5QrCode.start(
+          cameraId,
+          { fps: 10, qrbox: 250 },
+          (decodedText) => {
+            alert("QR Code detected: " + decodedText);
+            html5QrCode.stop();
+          }
+        );
       } catch (err) {
-        alert("Error: " + err);
+        alert("Error starting camera: " + err);
       }
     }
-    startScanner();
+
+    // Start scanner after page loads
+    window.addEventListener('load', startScanner);
   </script>
 </body>
 </html>
