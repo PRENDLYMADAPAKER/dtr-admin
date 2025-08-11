@@ -71,189 +71,204 @@
   </div>
 
 <script>
-/* ====== FIREBASE CONFIG ====== */
-const firebaseConfig = {
-  apiKey: "AIzaSyBYYZrsZECXM2UpW4-38sGQLaPqAqkjSWI",
-  authDomain: "dtr-project-66048.firebaseapp.com",
-  databaseURL: "https://dtr-project-66048-default-rtdb.asia-southeast1.firebasedatabase.app",
-  projectId: "dtr-project-66048",
-  storageBucket: "dtr-project-66048.appspot.com",
-  messagingSenderId: "271445506225",
-  appId: "1:271445506225:web:fcb04d0454e1302de14a90",
-  measurementId: "G-R22CLKSPCP"
-};
-firebase.initializeApp(firebaseConfig);
-const db = firebase.database();
-/* =========================== */
+  /* ====== FIREBASE CONFIG (same as Repo 1) ====== */
+  const firebaseConfig = {
+    apiKey: "AIzaSyBYYZrsZECXM2UpW4-38sGQLaPqAqkjSWI",
+    authDomain: "dtr-project-66048.firebaseapp.com",
+    databaseURL: "https://dtr-project-66048-default-rtdb.asia-southeast1.firebasedatabase.app",
+    projectId: "dtr-project-66048",
+    storageBucket: "dtr-project-66048.appspot.com",
+    messagingSenderId: "271445506225",
+    appId: "1:271445506225:web:fcb04d0454e1302de14a90",
+    measurementId: "G-R22CLKSPCP"
+  };
+  firebase.initializeApp(firebaseConfig);
+  const db = firebase.database();
+  /* ============================================ */
 
-/* Helpers */
-function todayYMD(d = new Date()){
-  const pad = n=> n<10?('0'+n):n;
-  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
-}
-function timeHMS(d = new Date()){
-  const pad = n=> n<10?('0'+n):n;
-  return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
-}
-function showStatus(text, isError=false){
-  const el = document.getElementById('scanStatus');
-  el.textContent = text;
-  el.style.color = isError? '#ff6b6b' : '#9ca3af';
-}
-function showLastAction(text){
-  const el = document.getElementById('lastAction');
-  el.style.display = text? 'block':'none';
-  el.textContent = text;
-}
+  /* Helpers */
+  function todayYMD(d = new Date()){
+    const pad = n=> n<10?('0'+n):n;
+    return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+  }
+  function timeHMS(d = new Date()){
+    const pad = n=> n<10?('0'+n):n;
+    return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+  }
+  function showStatus(text, isError=false){
+    const el = document.getElementById('scanStatus');
+    el.textContent = text;
+    el.style.color = isError? '#ffb4b4' : '#9ca3af';
+  }
+  function showLastAction(text){
+    const el = document.getElementById('lastAction');
+    el.style.display = text? 'block':'none';
+    el.textContent = text;
+  }
 
-/* Start QR scanner (always-on). Picks rear camera when available. */
-async function startScanner(){
-  const readerId = 'reader';
-  const el = document.getElementById(readerId);
-  el.innerHTML = ''; // clear container
+  /* Start QR scanner (always-on). Picks rear camera when available. */
+  async function startScanner(){
+    const readerId = 'reader';
+    const el = document.getElementById(readerId);
+    el.innerHTML = ''; // clear container
 
-  try {
-    const cameras = await Html5Qrcode.getCameras();
-    if (!cameras || cameras.length === 0) {
-      showStatus('No camera found.', true);
-      return;
-    }
+    try {
+      const cameras = await Html5Qrcode.getCameras();
+      if (!cameras || cameras.length === 0) {
+        showStatus('No camera found.', true);
+        return;
+      }
 
-    // Select back camera on mobile devices (usually last), else front or first camera
-    let cameraId = cameras[0].id; // default to first
-    if (cameras.length > 1) {
-      // Try to find environment facing camera by label
-      const backCamera = cameras.find(cam => /back|rear|environment/gi.test(cam.label));
-      if (backCamera) {
-        cameraId = backCamera.id;
+      // Select back camera on mobile devices (usually last), else front or first camera
+      let cameraId = cameras[0].id; // default to first
+      if (cameras.length > 1) {
+        // Use environment facing (rear) camera if available
+        const backCamera = cameras.find(cam => /back|rear|environment/gi.test(cam.label));
+        if (backCamera) {
+          cameraId = backCamera.id;
+        } else {
+          // fallback to last camera (usually rear)
+          cameraId = cameras[cameras.length -1].id;
+        }
+      }
+
+      showStatus('Starting camera...');
+
+      const config = {
+        fps: 10,
+        qrbox: window.innerWidth < 600 ? 250 : 300,
+        aspectRatio: 1.333,
+        disableFlip: false
+      };
+
+      const html5QrCode = new Html5Qrcode(readerId, { verbose: false });
+
+      await html5QrCode.start(
+        cameraId,
+        config,
+        qrMessage => {
+          handleScan(qrMessage);
+        },
+        errorMessage => {
+          // optionally log decode errors:
+          // console.log('QR decode error:', errorMessage);
+        }
+      );
+
+      showStatus('Scanner active — point camera to user QR');
+
+    } catch (err) {
+      console.error('Scanner start error', err);
+      if (err.name === 'NotAllowedError' || (err.message && err.message.toLowerCase().includes('permission'))) {
+        showStatus('Camera permission denied. Please allow camera access.', true);
+      } else if (err.name === 'NotFoundError') {
+        showStatus('No camera device found.', true);
       } else {
-        // fallback to last camera
-        cameraId = cameras[cameras.length - 1].id;
+        showStatus('Camera error: ' + (err.message || err), true);
       }
     }
+  }
 
-    showStatus('Starting camera...');
+  /* Handle a QR scan */
+  let lastScanCooldown = {}; // simple debounce per uid for a few seconds
+  async function handleScan(scanned){
+    // the QR payload should be UID from Repo1
+    const uid = (''+scanned).trim();
+    if(!uid) return;
+    // avoid processing same uid repeatedly in short time
+    if(lastScanCooldown[uid] && (Date.now() - lastScanCooldown[uid] < 3000)) return;
+    lastScanCooldown[uid] = Date.now();
 
-    const config = {
-      fps: 10,
-      qrbox: window.innerWidth < 600 ? 250 : 300,
-      aspectRatio: 1.333,
-      disableFlip: false
-    };
-
-    // Use experimentalFeatures for better compatibility
-    const html5QrCode = new Html5Qrcode(readerId, { verbose: false, experimentalFeatures: { useMediaStreamTrack: true } });
-
-    await html5QrCode.start(
-      cameraId,
-      config,
-      qrMessage => {
-        handleScan(qrMessage);
-      },
-      errorMessage => {
-        // Optionally log decode errors for debugging
-        // console.log('QR decode error:', errorMessage);
+    showStatus('Processing scan...');
+    try{
+      // read user profile from DB (users/{uid}/profile)
+      const profSnap = await db.ref('users/' + uid + '/profile').get();
+      if(!profSnap.exists()){
+        showStatus('QR not registered (UID not found).', true);
+        showLastAction(`Unregistered QR: ${uid}`);
+        return;
       }
-    );
+      const profile = profSnap.val();
+      const name = profile.name || 'Unknown';
+      const email = profile.email || '—';
+      const date = todayYMD();
+      const time = timeHMS();
 
-    showStatus('Scanner active — point camera to user QR');
+      // check duplicate: users/{uid}/dtr/{date}
+      const userDtrRef = db.ref(`users/${uid}/dtr/${date}`);
+      const dtrSnap = await userDtrRef.get();
+      if(dtrSnap.exists()){
+        showStatus('Already timed in today.');
+        showLastAction(`Already timed in: ${name} (${email}) — ${date} ${dtrSnap.val().timeIn}`);
+        return;
+      }
 
-  } catch (err) {
-    console.error('Scanner start error', err);
-    if (err.name === 'NotAllowedError' || (err.message && err.message.toLowerCase().includes('permission'))) {
-      showStatus('Camera permission denied. Please allow camera access.', true);
-    } else if (err.name === 'NotFoundError') {
-      showStatus('No camera device found.', true);
-    } else {
-      showStatus('Camera error: ' + (err.message || err), true);
+      // prepare record
+      const record = {
+        uid, name, email, date, time, ts: Date.now()
+      };
+
+      // write both:
+      // 1) users/{uid}/dtr/{date} = record
+      // 2) timeIns/{date}/{uid} = record (admin view by date)
+      await userDtrRef.set({ timeIn: time, ts: record.ts });
+      await db.ref(`timeIns/${date}/${uid}`).set(record);
+
+      showStatus('Time-In recorded ✔');
+      showLastAction(`Recorded: ${name} (${email}) — ${date} ${time}`);
+    }catch(err){
+      console.error('handleScan error', err);
+      showStatus('Error saving record: ' + (err.message||err), true);
     }
   }
-}
 
-/* Handle a QR scan */
-let lastScanCooldown = {}; // simple debounce per uid for a few seconds
-async function handleScan(scanned){
-  const uid = (''+scanned).trim();
-  if(!uid) return;
-  if(lastScanCooldown[uid] && (Date.now() - lastScanCooldown[uid] < 3000)) return;
-  lastScanCooldown[uid] = Date.now();
-
-  showStatus('Processing scan...');
-  try{
-    const profSnap = await db.ref('users/' + uid + '/profile').get();
-    if(!profSnap.exists()){
-      showStatus('QR not registered (UID not found).', true);
-      showLastAction(`Unregistered QR: ${uid}`);
-      return;
-    }
-    const profile = profSnap.val();
-    const name = profile.name || 'Unknown';
-    const email = profile.email || '—';
-    const date = todayYMD();
-    const time = timeHMS();
-
-    const userDtrRef = db.ref(`users/${uid}/dtr/${date}`);
-    const dtrSnap = await userDtrRef.get();
-    if(dtrSnap.exists()){
-      showStatus('Already timed in today.');
-      showLastAction(`Already timed in: ${name} (${email}) — ${date} ${dtrSnap.val().timeIn}`);
-      return;
-    }
-
-    const record = { uid, name, email, date, time, ts: Date.now() };
-    await userDtrRef.set({ timeIn: time, ts: record.ts });
-    await db.ref(`timeIns/${date}/${uid}`).set(record);
-
-    showStatus('Time-In recorded ✔');
-    showLastAction(`Recorded: ${name} (${email}) — ${date} ${time}`);
-
-  } catch(err){
-    console.error('handleScan error', err);
-    showStatus('Error saving record: ' + (err.message||err), true);
-  }
-}
-
-/* Live history listener */
-function listenHistory(){
-  const tbody = document.getElementById('historyBody');
-  const rootRef = db.ref('timeIns');
-  rootRef.on('value', snap => {
-    const all = [];
-    snap.forEach(dateSnap => {
-      const date = dateSnap.key;
-      dateSnap.forEach(uidSnap => {
-        all.push(uidSnap.val());
+  /* Live history listener (listen to all timeIns) */
+  function listenHistory(){
+    const tbody = document.getElementById('historyBody');
+    // We will listen to the whole timeIns tree and render flattened list sorted by ts desc
+    const rootRef = db.ref('timeIns');
+    rootRef.on('value', snap => {
+      const all = [];
+      snap.forEach(dateSnap => {
+        const date = dateSnap.key;
+        dateSnap.forEach(uidSnap => {
+          const rec = uidSnap.val();
+          all.push(rec);
+        });
       });
+      // sort by timestamp desc
+      all.sort((a,b)=> (b.ts||0) - (a.ts||0));
+      // render
+      if(all.length === 0){
+        tbody.innerHTML = `<tr><td colspan="5" class="muted">No records yet</td></tr>`;
+        return;
+      }
+      tbody.innerHTML = all.map(r => `<tr>
+        <td>${r.date}</td>
+        <td>${r.time}</td>
+        <td>${escapeHtml(r.name)}</td>
+        <td>${escapeHtml(r.email)}</td>
+        <td>${escapeHtml(r.uid)}</td>
+      </tr>`).join('');
     });
-    all.sort((a,b) => (b.ts||0) - (a.ts||0));
-    if(all.length === 0){
-      tbody.innerHTML = `<tr><td colspan="5" class="muted">No records yet</td></tr>`;
-      return;
-    }
-    tbody.innerHTML = all.map(r => `<tr>
-      <td>${r.date}</td>
-      <td>${r.time}</td>
-      <td>${escapeHtml(r.name)}</td>
-      <td>${escapeHtml(r.email)}</td>
-      <td>${escapeHtml(r.uid)}</td>
-    </tr>`).join('');
+  }
+
+  /* Print table */
+  function printRecords(){
+    window.print();
+  }
+
+  /* small helper to escape html */
+  function escapeHtml(s){ return (s||'').toString().replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;'); }
+
+  /* Wait for DOM and scripts to load before starting */
+  window.addEventListener('DOMContentLoaded', () => {
+    startScanner();
+    listenHistory();
   });
-}
 
-/* Print table */
-function printRecords(){
-  window.print();
-}
-
-/* Escape HTML helper */
-function escapeHtml(s){
-  return (s||'').toString().replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;');
-}
-
-/* Initialize */
-startScanner();
-listenHistory();
-window.printRecords = printRecords;
+  /* expose printRecords for button */
+  window.printRecords = printRecords;
 </script>
 </body>
 </html>
