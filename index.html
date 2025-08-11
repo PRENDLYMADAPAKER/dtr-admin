@@ -5,75 +5,321 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Admin DTR Panel — QR Scanner with Firebase</title>
   <style>
+    /* Reset & base */
     body {
       font-family: Arial, sans-serif;
       background: #121212;
       color: #eee;
-      margin: 0; padding: 0; text-align: center;
+      margin: 0; padding: 0;
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+      align-items: center;
     }
     header {
-      padding: 15px;
+      width: 100%;
       background: #1e1e1e;
-      font-size: 20px;
+      padding: 15px 20px;
+      font-size: 22px;
       font-weight: bold;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      box-sizing: border-box;
+      color: #4ade80;
+      user-select: none;
+    }
+    #clock {
+      font-family: 'Courier New', Courier, monospace;
+      font-size: 16px;
+      color: #94a3b8;
+    }
+
+    main {
+      flex-grow: 1;
+      width: 95%;
+      max-width: 900px;
+      margin: 20px auto 40px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+      box-sizing: border-box;
+    }
+
+    /* Left panel: Scanner & profile */
+    #scanner-panel {
+      background: #1f2937;
+      border-radius: 12px;
+      padding: 20px;
+      box-sizing: border-box;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-width: 280px;
     }
     #video {
-      width: 320px;
-      max-width: 90vw;
-      margin: 20px auto;
+      width: 100%;
+      max-width: 320px;
       border-radius: 8px;
-      box-shadow: 0 0 10px #00f;
+      box-shadow: 0 0 12px #22c55e;
+      background: #000;
     }
+
     #result {
       margin-top: 15px;
+      min-height: 30px;
+      font-weight: 600;
       font-size: 18px;
-      font-weight: bold;
-      min-height: 24px;
+      text-align: center;
+      user-select: none;
     }
+
+    #profile-info {
+      margin-top: 15px;
+      padding: 12px;
+      background: #334155;
+      border-radius: 8px;
+      width: 100%;
+      color: #cbd5e1;
+      display: none;
+    }
+    #profile-info div {
+      margin: 4px 0;
+    }
+
+    .status-success {
+      color: #4ade80;
+    }
+    .status-error {
+      color: #f87171;
+    }
+    .status-warning {
+      color: #fbbf24;
+    }
+
+    /* Buttons */
+    #controls {
+      margin-top: 20px;
+      display: flex;
+      gap: 15px;
+      width: 100%;
+      justify-content: center;
+    }
+    button {
+      cursor: pointer;
+      background-color: #22c55e;
+      border: none;
+      padding: 12px 22px;
+      font-weight: bold;
+      font-size: 16px;
+      color: #121212;
+      border-radius: 8px;
+      box-shadow: 0 0 12px #22c55eaa;
+      transition: background-color 0.3s ease;
+    }
+    button:hover {
+      background-color: #16a34a;
+      box-shadow: 0 0 16px #16a34acc;
+    }
+    button:disabled {
+      background-color: #6ee7b7;
+      cursor: not-allowed;
+      box-shadow: none;
+    }
+
+    /* Right panel: Logs & history */
+    #logs-panel {
+      background: #1f2937;
+      border-radius: 12px;
+      padding: 20px;
+      box-sizing: border-box;
+      display: flex;
+      flex-direction: column;
+      max-height: 80vh;
+      overflow: auto;
+    }
+
+    /* Logs search + buttons container */
+    #logs-controls {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 12px;
+      align-items: center;
+    }
+    #logs-search {
+      flex-grow: 1;
+      padding: 8px 12px;
+      border-radius: 6px;
+      border: none;
+      font-size: 16px;
+      box-sizing: border-box;
+    }
+
+    #print-btn, #export-btn {
+      background-color: #3b82f6;
+      color: white;
+      padding: 8px 14px;
+      font-weight: 600;
+      border-radius: 6px;
+      border: none;
+      cursor: pointer;
+      box-shadow: 0 0 8px #3b82f6aa;
+      transition: background-color 0.3s ease;
+    }
+    #print-btn:hover, #export-btn:hover {
+      background-color: #2563eb;
+      box-shadow: 0 0 10px #2563ebcc;
+    }
+
     table {
-      width: 90%;
-      margin: 20px auto;
       border-collapse: collapse;
-      color: #eee;
+      width: 100%;
+      font-size: 14px;
+      color: #cbd5e1;
     }
     th, td {
-      border: 1px solid #444;
-      padding: 8px;
-      text-align: center;
+      border: 1px solid #475569;
+      padding: 8px 12px;
+      text-align: left;
+      user-select: text;
     }
     th {
-      background: #333;
+      background: #334155;
+      cursor: pointer;
+      position: relative;
+    }
+    th .sort-arrow {
+      position: absolute;
+      right: 8px;
+      top: 50%;
+      transform: translateY(-50%);
+      font-size: 14px;
+      color: #94a3b8;
+      user-select: none;
     }
     tr:nth-child(even) {
-      background: #1e1e1e;
+      background: #1e293b;
+    }
+    tr:hover {
+      background: #475569;
+    }
+    .no-records {
+      text-align: center;
+      font-style: italic;
+      padding: 20px 0;
+      color: #94a3b8;
+    }
+
+    /* Scan History */
+    #history-panel {
+      margin-top: 25px;
+      padding-top: 12px;
+      border-top: 1px solid #475569;
+      flex-grow: 1;
+      overflow-y: auto;
+      color: #cbd5e1;
+      font-size: 13px;
+    }
+    #history-panel h3 {
+      margin-bottom: 8px;
+      font-weight: 700;
+      color: #a5b4fc;
+      user-select: none;
+    }
+    #history-filter {
+      width: 100%;
+      padding: 6px 10px;
+      border-radius: 6px;
+      border: none;
+      margin-bottom: 10px;
+      font-size: 14px;
+      box-sizing: border-box;
+      color: #1f2937;
+    }
+    #history-list {
+      max-height: 220px;
+      overflow-y: auto;
+      background: #334155;
+      border-radius: 6px;
+      padding: 8px;
+    }
+    #history-list div {
+      margin-bottom: 6px;
+      user-select: none;
+    }
+
+    /* Responsive */
+    @media (max-width: 800px) {
+      main {
+        grid-template-columns: 1fr;
+      }
+      #logs-panel {
+        max-height: none;
+        overflow: visible;
+      }
     }
   </style>
 </head>
 <body>
-  <header>📋 Admin DTR Panel — ZXing QR Scanner + Firebase</header>
+  <header>
+    📋 Admin DTR Panel
+    <div id="clock">--:--:--</div>
+  </header>
 
-  <video id="video" muted autoplay playsinline></video>
-  <div id="result">Initializing camera...</div>
+  <main>
+    <section id="scanner-panel">
+      <video id="video" muted autoplay playsinline></video>
+      <div id="result">Initializing camera...</div>
 
-  <h2>Today's Logs</h2>
-  <table aria-live="polite" id="logs-table">
-    <thead>
-      <tr><th>User ID</th><th>Time In</th></tr>
-    </thead>
-    <tbody id="logs-body">
-      <tr><td colspan="2">Loading...</td></tr>
-    </tbody>
-  </table>
+      <div id="profile-info">
+        <div><strong>Name:</strong> <span id="profile-name"></span></div>
+        <div><strong>Email:</strong> <span id="profile-email"></span></div>
+      </div>
 
+      <div id="controls">
+        <button id="start-btn">Start Scanner</button>
+        <button id="stop-btn" disabled>Stop Scanner</button>
+      </div>
+    </section>
+
+    <section id="logs-panel">
+      <div id="logs-controls">
+        <input id="logs-search" placeholder="Search logs..." aria-label="Search logs" />
+        <button id="print-btn" title="Print logs">🖨️ Print</button>
+        <button id="export-btn" title="Export logs as CSV">💾 Export</button>
+      </div>
+
+      <table id="logs-table" aria-live="polite" role="grid">
+        <thead>
+          <tr>
+            <th data-key="uid">User ID <span class="sort-arrow"></span></th>
+            <th data-key="name">Name <span class="sort-arrow"></span></th>
+            <th data-key="email">Email <span class="sort-arrow"></span></th>
+            <th data-key="time">Time In <span class="sort-arrow"></span></th>
+          </tr>
+        </thead>
+        <tbody id="logs-body">
+          <tr><td colspan="4" class="no-records">Loading logs...</td></tr>
+        </tbody>
+      </table>
+
+      <div id="history-panel" aria-live="polite" aria-label="Scan history panel">
+        <h3>Scan History</h3>
+        <input id="history-filter" placeholder="Filter scan history..." aria-label="Filter scan history" />
+        <div id="history-list">
+          <div>No scans yet.</div>
+        </div>
+      </div>
+    </section>
+  </main>
   <!-- ZXing library -->
   <script src="https://cdn.jsdelivr.net/npm/@zxing/library@0.19.1/umd/index.min.js"></script>
 
   <!-- Firebase SDK -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-    import { getDatabase, ref, get, set, child, onValue } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+    import { getDatabase, ref, get, set, onValue } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 
-    // Your Firebase config here:
     const firebaseConfig = {
       apiKey: "AIzaSyBYYZrsZECXM2UpW4-38sGQLaPqAqkjSWI",
       authDomain: "dtr-project-66048.firebaseapp.com",
@@ -85,71 +331,121 @@
       measurementId: "G-R22CLKSPCP"
     };
 
-    // Initialize Firebase
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
 
-    // ZXing Setup
     const codeReader = new ZXing.BrowserQRCodeReader();
     const videoElement = document.getElementById('video');
-    const resultDiv = document.getElementById('result');
-    let scanning = false;
 
-    // Format today's date YYYY-MM-DD
+    const resultDiv = document.getElementById('result');
+    const profileInfo = document.getElementById('profile-info');
+    const profileName = document.getElementById('profile-name');
+    const profileEmail = document.getElementById('profile-email');
+
+    const startBtn = document.getElementById('start-btn');
+    const stopBtn = document.getElementById('stop-btn');
+
+    const logsBody = document.getElementById('logs-body');
+    const logsSearch = document.getElementById('logs-search');
+
+    const historyList = document.getElementById('history-list');
+    const historyFilterInput = document.getElementById('history-filter');
+
+    let scanning = false;
+    let scanCooldowns = {};
+    let scanHistory = [];
+    let logsData = [];
+    let currentSort = { key: 'time', ascending: false };
+
+    // Helpers
     function todayYMD() {
       const d = new Date();
       const pad = n => n < 10 ? '0' + n : n;
-      return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+      return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
     }
-
-    // Get current time HH:MM:SS
     function timeHMS() {
       const d = new Date();
       const pad = n => n < 10 ? '0' + n : n;
       return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
     }
+    function escapeHtml(text) {
+      return text.replace(/[&<>"']/g, function(m) {
+        return ({
+          '&': '&amp;',
+          '<': '&lt;',
+          '>': '&gt;',
+          '"': '&quot;',
+          "'": '&#39;'
+        })[m];
+      });
+    }
 
-    // Start the camera and scanner
+    // Real-time clock update
+    const clockElem = document.getElementById('clock');
+    function updateClock() {
+      const now = new Date();
+      const pad = n => n < 10 ? '0' + n : n;
+      clockElem.textContent = `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+    }
+    setInterval(updateClock, 1000);
+    updateClock();
+
+    // Status message
+    function setResult(message, status='info') {
+      const icons = { success: '✅', error: '❌', warning: '⚠️', info: 'ℹ️' };
+      resultDiv.textContent = `${icons[status] || ''} ${message}`;
+      resultDiv.className = '';
+      resultDiv.classList.add(`status-${status}`);
+    }
+
+    // Start/Stop Scanner
     async function startScanner() {
+      if (scanning) return;
       try {
         const devices = await codeReader.listVideoInputDevices();
         if (devices.length === 0) {
-          resultDiv.textContent = "❌ No camera devices found.";
+          setResult('No camera devices found.', 'error');
           return;
         }
-        // Prefer environment (rear) camera if available
-        const backCamera = devices.find(device => device.label.toLowerCase().includes('back')) || devices[0];
+        const backCamera = devices.find(d => d.label.toLowerCase().includes('back')) || devices[0];
         scanning = true;
-        resultDiv.textContent = "📷 Point the camera to a QR code.";
+        setResult('Point camera to a QR code.', 'info');
+
         await codeReader.decodeFromVideoDevice(backCamera.deviceId, videoElement, (result, err) => {
-          if (result) {
-            handleScan(result.getText());
-          }
-          if (err && !(err instanceof ZXing.NotFoundException)) {
+          if (result) handleScan(result.getText());
+          else if (err && !(err instanceof ZXing.NotFoundException)) {
             console.error(err);
+            setResult('Camera error: ' + err.message, 'error');
           }
         });
-      } catch (error) {
-        resultDiv.textContent = "Camera error: " + error.message;
-        console.error("Camera error:", error);
+        startBtn.disabled = true;
+        stopBtn.disabled = false;
+      } catch (e) {
+        setResult('Camera error: ' + e.message, 'error');
       }
     }
+    function stopScanner() {
+      if (!scanning) return;
+      codeReader.reset();
+      scanning = false;
+      setResult('Scanner stopped.', 'info');
+      startBtn.disabled = false;
+      stopBtn.disabled = true;
+      profileInfo.style.display = 'none';
+    }
 
-    // Simple debounce so it won't flood with multiple scans of same QR quickly
-    const scanCooldowns = {};
+    // Scan handling
     async function handleScan(text) {
       if (!scanning) return;
       const uid = text.trim();
       if (!uid) return;
 
       const now = Date.now();
-      if (scanCooldowns[uid] && now - scanCooldowns[uid] < 5000) {
-        // Ignore duplicate scans within 5 seconds
-        return;
-      }
+      if (scanCooldowns[uid] && (now - scanCooldowns[uid]) < 5000) return;
       scanCooldowns[uid] = now;
 
-      resultDiv.textContent = `⏳ Processing UID: ${uid} ...`;
+      setResult(`Processing UID: ${uid} ...`, 'info');
+      profileInfo.style.display = 'none';
 
       const dateStr = todayYMD();
       const timeStr = timeHMS();
@@ -158,7 +454,7 @@
         const userRef = ref(db, `users/${uid}/profile`);
         const userSnap = await get(userRef);
         if (!userSnap.exists()) {
-          resultDiv.textContent = `❌ UID ${uid} not registered.`;
+          setResult(`UID ${uid} not registered.`, 'error');
           return;
         }
         const profile = userSnap.val();
@@ -166,46 +462,196 @@
         const dtrRef = ref(db, `users/${uid}/dtr/${dateStr}`);
         const dtrSnap = await get(dtrRef);
         if (dtrSnap.exists()) {
-          resultDiv.textContent = `⚠️ User ${profile.name} already timed in today at ${dtrSnap.val().timeIn}`;
+          setResult(`User ${profile.name} already timed in today at ${dtrSnap.val().timeIn}`, 'warning');
+          showProfile(profile);
+          addToHistory(uid, profile.name, profile.email || '-', timeStr, false);
           return;
         }
 
-        // Write DTR record
         await set(dtrRef, { timeIn: timeStr, ts: Date.now() });
-        await set(ref(db, `timeIns/${dateStr}/${uid}`), { uid, name: profile.name, email: profile.email || '-', date: dateStr, time: timeStr, ts: Date.now() });
+        await set(ref(db, `timeIns/${dateStr}/${uid}`), {
+          uid, name: profile.name, email: profile.email || '-', date: dateStr, time: timeStr, ts: Date.now()
+        });
 
-        resultDiv.textContent = `✅ Recorded time-in for ${profile.name} at ${timeStr}`;
+        setResult(`Recorded time-in for ${profile.name} at ${timeStr}`, 'success');
+        showProfile(profile);
+        addToHistory(uid, profile.name, profile.email || '-', timeStr, true);
       } catch (err) {
-        console.error("Error saving DTR:", err);
-        resultDiv.textContent = "❌ Error saving time-in: " + err.message;
+        console.error('Error saving DTR:', err);
+        setResult('Error saving time-in: ' + err.message, 'error');
+        profileInfo.style.display = 'none';
       }
     }
+    function showProfile(profile) {
+      profileName.textContent = profile.name || '-';
+      profileEmail.textContent = profile.email || '-';
+      profileInfo.style.display = 'block';
+    }
 
-    // Load today's logs live and display them
+    // Scan History Panel
+    function addToHistory(uid, name, email, time, success) {
+      const entry = { uid, name, email, time, success, ts: Date.now() };
+      scanHistory.unshift(entry);
+      renderHistory(historyFilterInput.value);
+    }
+    function renderHistory(filterText = '') {
+      const ft = filterText.toLowerCase();
+      const filtered = scanHistory.filter(e =>
+        e.uid.toLowerCase().includes(ft) ||
+        e.name.toLowerCase().includes(ft) ||
+        e.email.toLowerCase().includes(ft)
+      );
+      if (filtered.length === 0) {
+        historyList.innerHTML = '<div>No matching scans.</div>';
+        return;
+      }
+      historyList.innerHTML = filtered.map(e => {
+        const color = e.success ? '#4ade80' : '#fbbf24';
+        return `<div style="color:${color};">
+          <strong>${escapeHtml(e.name)}</strong> (${escapeHtml(e.uid)}) — ${escapeHtml(e.time)}
+        </div>`;
+      }).join('');
+    }
+    historyFilterInput.addEventListener('input', () => {
+      renderHistory(historyFilterInput.value);
+    });
+
+    // Logs panel: listen to Firebase timeIns updates
     function listenLogs() {
-      const logsBody = document.getElementById('logs-body');
       const dateStr = todayYMD();
       const logsRef = ref(db, `timeIns/${dateStr}`);
-
       onValue(logsRef, (snapshot) => {
-        const logs = snapshot.val() || {};
-        const entries = Object.values(logs).sort((a,b) => (b.ts||0) - (a.ts||0));
-
-        if (entries.length === 0) {
-          logsBody.innerHTML = '<tr><td colspan="2">No records today</td></tr>';
-          return;
-        }
-
-        logsBody.innerHTML = entries.map(entry =>
-          `<tr><td>${entry.uid}</td><td>${entry.time}</td></tr>`
-        ).join('');
+        logsData = snapshot.val() ? Object.values(snapshot.val()) : [];
+        sortLogs(currentSort.key, currentSort.ascending);
+        renderLogs(logsSearch.value);
       });
     }
 
+    // Render logs table filtered by search
+    function renderLogs(filterText = '') {
+      const ft = filterText.toLowerCase();
+      const filtered = logsData.filter(e =>
+        e.uid.toLowerCase().includes(ft) ||
+        e.name.toLowerCase().includes(ft) ||
+        e.email.toLowerCase().includes(ft) ||
+        e.time.toLowerCase().includes(ft)
+      );
+
+      if (filtered.length === 0) {
+        logsBody.innerHTML = `<tr><td colspan="4" class="no-records">No matching records</td></tr>`;
+        return;
+      }
+
+      logsBody.innerHTML = filtered.map(entry =>
+        `<tr>
+          <td>${escapeHtml(entry.uid)}</td>
+          <td>${escapeHtml(entry.name)}</td>
+          <td>${escapeHtml(entry.email)}</td>
+          <td>${escapeHtml(entry.time)}</td>
+        </tr>`).join('');
+    }
+
+    // Sorting logs
+    function sortLogs(key, ascending) {
+      logsData.sort((a,b) => {
+        let valA = a[key] ? a[key].toString().toLowerCase() : '';
+        let valB = b[key] ? b[key].toString().toLowerCase() : '';
+        if (key === 'time') {
+          valA = a.ts || 0;
+          valB = b.ts || 0;
+        }
+        if (valA < valB) return ascending ? -1 : 1;
+        if (valA > valB) return ascending ? 1 : -1;
+        return 0;
+      });
+    }
+
+    // Handle table header clicks for sorting
+    document.querySelectorAll('#logs-table th').forEach(th => {
+      th.addEventListener('click', () => {
+        const key = th.getAttribute('data-key');
+        if (!key) return;
+
+        if (currentSort.key === key) {
+          currentSort.ascending = !currentSort.ascending;
+        } else {
+          currentSort.key = key;
+          currentSort.ascending = true;
+        }
+        sortLogs(currentSort.key, currentSort.ascending);
+        renderLogs(logsSearch.value);
+        updateSortArrows();
+      });
+    });
+
+    // Update sorting arrow icons in headers
+    function updateSortArrows() {
+      document.querySelectorAll('#logs-table th').forEach(th => {
+        const arrowSpan = th.querySelector('.sort-arrow');
+        if (!arrowSpan) return;
+        const key = th.getAttribute('data-key');
+        if (key === currentSort.key) {
+          arrowSpan.textContent = currentSort.ascending ? '▲' : '▼';
+        } else {
+          arrowSpan.textContent = '';
+        }
+      });
+    }
+
+    // Search logs input event
+    logsSearch.addEventListener('input', () => {
+      renderLogs(logsSearch.value);
+    });
+
+    // Export logs to CSV
+    function exportCSV() {
+      if (logsData.length === 0) {
+        alert('No data to export');
+        return;
+      }
+      const headers = ['User ID', 'Name', 'Email', 'Time In'];
+      const rows = logsData.map(e => [e.uid, e.name, e.email, e.time]);
+      let csvContent = 'data:text/csv;charset=utf-8,';
+      csvContent += headers.join(',') + '\r\n';
+      rows.forEach(row => {
+        csvContent += row.map(field => `"${field.replace(/"/g, '""')}"`).join(',') + '\r\n';
+      });
+      const encodedUri = encodeURI(csvContent);
+      const link = document.createElement('a');
+      link.setAttribute('href', encodedUri);
+      link.setAttribute('download', `dtr_logs_${todayYMD()}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+
+    // Print logs table
+    function printLogs() {
+      const printWindow = window.open('', '', 'width=900,height=600');
+      printWindow.document.write('<html><head><title>Print DTR Logs</title>');
+      printWindow.document.write('<style>body{font-family:Arial,sans-serif;color:#222;}table{width:100%;border-collapse:collapse;}th,td{border:1px solid #ccc;padding:8px;text-align:left;}th{background:#eee;}</style>');
+      printWindow.document.write('</head><body>');
+      printWindow.document.write('<h2>DTR Logs - ' + todayYMD() + '</h2>');
+      printWindow.document.write(document.getElementById('logs-table').outerHTML);
+      printWindow.document.write('</body></html>');
+      printWindow.document.close();
+      printWindow.focus();
+      printWindow.print();
+      printWindow.close();
+    }
+
+    // Event listeners for buttons
+    startBtn.addEventListener('click', startScanner);
+    stopBtn.addEventListener('click', stopScanner);
+    document.getElementById('export-btn').addEventListener('click', exportCSV);
+    document.getElementById('print-btn').addEventListener('click', printLogs);
+
+    // Initialize listeners & UI on load
     window.onload = () => {
-      startScanner();
       listenLogs();
+      updateSortArrows();
+      setResult('Scanner ready. Click "Start Scanner".', 'info');
     };
   </script>
 </body>
-</html>
+  </html>
