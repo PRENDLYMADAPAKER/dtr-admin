@@ -1,131 +1,361 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
+<meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>QR Scanner with Firebase - Working Example</title>
+<title>Admin — QR Time-In (Repo 2)</title>
+
 <style>
-  body { font-family: Arial, sans-serif; background: #121212; color: #eee; margin: 0; padding: 20px; text-align: center; }
-  #reader { width: 300px; margin: 0 auto; border-radius: 8px; overflow: hidden; }
-  #status { margin-top: 10px; font-weight: bold; }
-  #result { margin-top: 20px; background: #222; padding: 10px; border-radius: 8px; word-break: break-all; }
-</style>
-<!-- Firebase -->
-<script src="https://www.gstatic.com/firebasejs/11.0.1/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/11.0.1/firebase-database-compat.js"></script>
-<!-- Html5 Qrcode -->
-<script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/minified/html5-qrcode.min.js"></script>
-</head>
-<body>
-
-<h1>QR Code Scanner</h1>
-<div id="reader"></div>
-<div id="status">Initializing camera...</div>
-<div id="result">Scanned result will appear here.</div>
-
-<script>
-  // Initialize Firebase
-  const firebaseConfig = {
-    apiKey: "AIzaSyBYYZrsZECXM2UpW4-38sGQLaPqAqkjSWI",
-    authDomain: "dtr-project-66048.firebaseapp.com",
-    databaseURL: "https://dtr-project-66048-default-rtdb.asia-southeast1.firebasedatabase.app",
-    projectId: "dtr-project-66048",
-    storageBucket: "dtr-project-66048.appspot.com",
-    messagingSenderId: "271445506225",
-    appId: "1:271445506225:web:fcb04d0454e1302de14a90",
-    measurementId: "G-R22CLKSPCP"
-  };
-  firebase.initializeApp(firebaseConfig);
-  const db = firebase.database();
-
-  // Helper for date/time formatting
-  function todayYMD() {
-    const d = new Date();
-    const pad = n => n < 10 ? '0' + n : n;
-    return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+  :root {
+    --bg: #071427;
+    --card: #0f1724;
+    --accent: #06b6d4;
+    color: #e6eef8;
   }
-  function timeHMS() {
-    const d = new Date();
-    const pad = n => n < 10 ? '0' + n : n;
-    return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+  body {
+    margin: 0;
+    font-family: Inter, system-ui, Arial, Helvetica, sans-serif;
+    background: linear-gradient(180deg, #071427, #061226);
+    color: var(--card);
+    min-height: 100vh;
   }
-
-  // Show status
-  function showStatus(msg, isError = false) {
-    const el = document.getElementById('status');
-    el.textContent = msg;
-    el.style.color = isError ? '#ff6b6b' : '#9ca3af';
+  header {
+    background: rgba(0, 0, 0, 0.15);
+    padding: 12px 16px;
+    color: var(--accent);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
   }
-  // Show result
-  function showResult(text) {
-    document.getElementById('result').textContent = `Scanned: ${text}`;
+  h1 {
+    margin: 0;
+    font-size: 18px;
+    color: #e6eef8;
   }
-
-  async function handleScan(scannedText) {
-    const uid = scannedText.trim();
-    if (!uid) return;
-    showStatus("Processing scan...");
-    showResult(uid);
-
-    const date = todayYMD();
-    const time = timeHMS();
-
-    try {
-      const userProfileSnap = await db.ref('users/' + uid + '/profile').get();
-      if (!userProfileSnap.exists()) {
-        showStatus("User not registered.", true);
-        return;
-      }
-      const profile = userProfileSnap.val();
-      const userDtrRef = db.ref(`users/${uid}/dtr/${date}`);
-      const dtrSnap = await userDtrRef.get();
-      if (dtrSnap.exists()) {
-        showStatus("Already timed in today.");
-        return;
-      }
-      const record = { uid, name: profile.name || 'Unknown', email: profile.email || '—', date, time, ts: Date.now() };
-      await userDtrRef.set({ timeIn: time, ts: record.ts });
-      await db.ref(`timeIns/${date}/${uid}`).set(record);
-      showStatus("Time-In recorded ✔");
-    } catch (err) {
-      console.error(err);
-      showStatus("Error: " + err.message, true);
+  .wrap {
+    max-width: 1100px;
+    margin: 18px auto;
+    padding: 12px;
+  }
+  .grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+  @media (max-width: 900px) {
+    .grid {
+      grid-template-columns: 1fr;
     }
   }
+  .card {
+    background: rgba(255, 255, 255, 0.03);
+    padding: 14px;
+    border-radius: 12px;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.6);
+  }
+  #reader {
+    width: 100%;
+    min-height: 320px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #000;
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  .status {
+    margin-top: 8px;
+    color: #9ca3af;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 12px;
+    background: transparent;
+    color: #e6eef8;
+  }
+  th,
+  td {
+    padding: 8px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+    text-align: left;
+    font-size: 13px;
+  }
+  th {
+    background: rgba(255, 255, 255, 0.02);
+    color: #cbd5e1;
+  }
+  .btn {
+    background: linear-gradient(90deg, var(--accent), #60a5fa);
+    border: none;
+    color: #021124;
+    padding: 8px 12px;
+    border-radius: 8px;
+    cursor: pointer;
+  }
+  .muted {
+    color: #94a3b8;
+    font-size: 13px;
+  }
+  .notice {
+    padding: 8px;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.02);
+    margin-top: 8px;
+  }
+  /* print */
+  @media print {
+    header,
+    .btn,
+    .status {
+      display: none !important;
+    }
+    body {
+      background: white;
+      color: black;
+    }
+    table,
+    th,
+    td {
+      color: black;
+      border: 1px solid #999;
+    }
+  }
+</style>
 
-  async function startScanner() {
-    const readerId = "reader";
-    const html5QrCode = new Html5Qrcode(readerId);
+<!-- Firebase Compat SDK -->
+<script src="https://www.gstatic.com/firebasejs/11.0.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/11.0.1/firebase-database-compat.js"></script>
 
-    try {
-      const cameras = await Html5Qrcode.getCameras();
-      if (!cameras || cameras.length === 0) {
-        showStatus("No camera found.", true);
-        return;
+<!-- html5-qrcode library (reliable CDN) -->
+<script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/minified/html5-qrcode.min.js"></script>
+
+</head>
+<body>
+<header>
+  <h1>QR Time-In — Admin Panel</h1>
+  <div>
+    <button class="btn" onclick="printRecords()">Print Records</button>
+  </div>
+</header>
+
+<div class="wrap">
+  <div class="grid">
+    <!-- Scanner Card -->
+    <div class="card">
+      <h2 style="margin:0; color:#e6eef8;">Scanner (always on)</h2>
+      <div id="reader"></div>
+      <div id="scanStatus" class="status muted">Initializing camera...</div>
+      <div id="lastAction" class="notice muted" style="display:none"></div>
+    </div>
+
+    <!-- History Card -->
+    <div class="card">
+      <h2 style="margin:0; color:#e6eef8;">Full History (live)</h2>
+      <div class="muted">Shows all time-ins across users (newest first)</div>
+      <table id="historyTable" aria-live="polite">
+        <thead>
+          <tr>
+            <th>Date</th><th>Time</th><th>Name</th><th>Email</th><th>UID</th>
+          </tr>
+        </thead>
+        <tbody id="historyBody">
+          <tr><td colspan="5" class="muted">Loading…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ====== FIREBASE CONFIG ====== */
+const firebaseConfig = {
+  apiKey: "AIzaSyBYYZrsZECXM2UpW4-38sGQLaPqAqkjSWI",
+  authDomain: "dtr-project-66048.firebaseapp.com",
+  databaseURL: "https://dtr-project-66048-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "dtr-project-66048",
+  storageBucket: "dtr-project-66048.appspot.com",
+  messagingSenderId: "271445506225",
+  appId: "1:271445506225:web:fcb04d0454e1302de14a90",
+  measurementId: "G-R22CLKSPCP"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+/* =========================== */
+
+/* Helpers */
+function todayYMD(d = new Date()) {
+  const pad = n => (n < 10 ? "0" + n : n);
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+function timeHMS(d = new Date()) {
+  const pad = n => (n < 10 ? "0" + n : n);
+  return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+}
+function showStatus(text, isError = false) {
+  const el = document.getElementById("scanStatus");
+  el.textContent = text;
+  el.style.color = isError ? "#ff6b6b" : "#9ca3af";
+}
+function showLastAction(text) {
+  const el = document.getElementById("lastAction");
+  el.style.display = text ? "block" : "none";
+  el.textContent = text;
+}
+
+/* Start QR scanner (always-on). Picks rear camera when available. */
+async function startScanner() {
+  const readerId = "reader";
+  const el = document.getElementById(readerId);
+  el.innerHTML = ""; // clear container
+
+  try {
+    const cameras = await Html5Qrcode.getCameras();
+    console.log("Cameras found:", cameras);
+    if (!cameras || cameras.length === 0) {
+      showStatus("No camera found.", true);
+      return;
+    }
+
+    // Pick back camera if available, else default to first
+    let cameraId = cameras[0].id;
+    if (cameras.length > 1) {
+      const backCam = cameras.find(cam => /back|rear|environment/gi.test(cam.label));
+      if (backCam) cameraId = backCam.id;
+      else cameraId = cameras[cameras.length - 1].id;
+    }
+
+    showStatus("Starting camera...");
+
+    const config = {
+      fps: 10,
+      qrbox: window.innerWidth < 600 ? 250 : 300,
+      aspectRatio: 1.333,
+      disableFlip: false
+    };
+
+    const html5QrCode = new Html5Qrcode(readerId, { verbose: false });
+
+    await html5QrCode.start(
+      cameraId,
+      config,
+      qrMessage => {
+        handleScan(qrMessage);
+      },
+      errorMessage => {
+        // console.debug("QR decode error:", errorMessage);
       }
-      let cameraId = cameras[0].id;
-      if (cameras.length > 1) {
-        const backCam = cameras.find(c => /back|rear|environment/gi.test(c.label));
-        if (backCam) cameraId = backCam.id;
-        else cameraId = cameras[cameras.length - 1].id;
-      }
+    );
 
-      showStatus("Starting camera...");
-      await html5QrCode.start(
-        cameraId,
-        { fps: 10, qrbox: 250 },
-        (decodedText) => { handleScan(decodedText); },
-        (errorMessage) => { /* ignore decode errors */ }
-      );
-      showStatus("Scanner active — point camera at QR code");
-    } catch (err) {
-      console.error("Camera error:", err);
+    showStatus("Scanner active — point camera to user QR");
+
+  } catch (err) {
+    console.error("Scanner start error", err);
+    if (
+      err.name === "NotAllowedError" ||
+      (err.message && err.message.toLowerCase().includes("permission"))
+    ) {
+      showStatus("Camera permission denied. Please allow camera access.", true);
+    } else if (err.name === "NotFoundError") {
+      showStatus("No camera device found.", true);
+    } else {
       showStatus("Camera error: " + (err.message || err), true);
     }
   }
+}
 
-  startScanner();
+/* Handle a QR scan */
+let lastScanCooldown = {}; // debounce same UID for 3 seconds
+async function handleScan(scanned) {
+  const uid = ("" + scanned).trim();
+  if (!uid) return;
+  if (lastScanCooldown[uid] && Date.now() - lastScanCooldown[uid] < 3000) return;
+  lastScanCooldown[uid] = Date.now();
+
+  showStatus("Processing scan...");
+  try {
+    const profSnap = await db.ref("users/" + uid + "/profile").get();
+    if (!profSnap.exists()) {
+      showStatus("QR not registered (UID not found).", true);
+      showLastAction(`Unregistered QR: ${uid}`);
+      return;
+    }
+    const profile = profSnap.val();
+    const name = profile.name || "Unknown";
+    const email = profile.email || "—";
+    const date = todayYMD();
+    const time = timeHMS();
+
+    const userDtrRef = db.ref(`users/${uid}/dtr/${date}`);
+    const dtrSnap = await userDtrRef.get();
+    if (dtrSnap.exists()) {
+      showStatus("Already timed in today.");
+      showLastAction(
+        `Already timed in: ${name} (${email}) — ${date} ${dtrSnap.val().timeIn}`
+      );
+      return;
+    }
+
+    const record = { uid, name, email, date, time, ts: Date.now() };
+    await userDtrRef.set({ timeIn: time, ts: record.ts });
+    await db.ref(`timeIns/${date}/${uid}`).set(record);
+
+    showStatus("Time-In recorded ✔");
+    showLastAction(`Recorded: ${name} (${email}) — ${date} ${time}`);
+  } catch (err) {
+    console.error("handleScan error", err);
+    showStatus("Error saving record: " + (err.message || err), true);
+  }
+}
+
+/* Live history listener */
+function listenHistory() {
+  const tbody = document.getElementById("historyBody");
+  const rootRef = db.ref("timeIns");
+  rootRef.on("value", (snap) => {
+    const all = [];
+    snap.forEach((dateSnap) => {
+      dateSnap.forEach((uidSnap) => {
+        all.push(uidSnap.val());
+      });
+    });
+    all.sort((a, b) => (b.ts || 0) - (a.ts || 0));
+    if (all.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="5" class="muted">No records yet</td></tr>`;
+      return;
+    }
+    tbody.innerHTML = all
+      .map(
+        (r) => `<tr>
+      <td>${r.date}</td>
+      <td>${r.time}</td>
+      <td>${escapeHtml(r.name)}</td>
+      <td>${escapeHtml(r.email)}</td>
+      <td>${escapeHtml(r.uid)}</td>
+    </tr>`
+      )
+      .join("");
+  });
+}
+
+/* Print table */
+function printRecords() {
+  window.print();
+}
+
+/* Escape HTML helper */
+function escapeHtml(s) {
+  return (s || "")
+    .toString()
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;");
+}
+
+/* Initialize */
+startScanner();
+listenHistory();
+window.printRecords = printRecords;
 </script>
-
 </body>
 </html>
