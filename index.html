@@ -2,344 +2,111 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Admin DTR Panel — QR Scanner with Firebase</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Admin Panel — QR Time-In</title>
   <style>
-    /* Reset & base */
     body {
       font-family: Arial, sans-serif;
-      background: #121212;
-      color: #eee;
-      margin: 0; padding: 0;
-      display: flex;
-      flex-direction: column;
-      min-height: 100vh;
-      align-items: center;
+      background-color: #0f172a;
+      color: white;
+      margin: 0;
+      padding: 0;
     }
     header {
-      width: 100%;
-      background: #1e1e1e;
-      padding: 15px 20px;
-      font-size: 22px;
-      font-weight: bold;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      box-sizing: border-box;
-      color: #4ade80;
-      user-select: none;
-    }
-    #clock {
-      font-family: 'Courier New', Courier, monospace;
-      font-size: 16px;
-      color: #94a3b8;
-    }
-
-    main {
-      flex-grow: 1;
-      width: 95%;
-      max-width: 900px;
-      margin: 20px auto 40px;
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 20px;
-      box-sizing: border-box;
-    }
-
-    /* Left panel: Scanner & profile */
-    #scanner-panel {
-      background: #1f2937;
-      border-radius: 12px;
-      padding: 20px;
-      box-sizing: border-box;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      min-width: 280px;
-    }
-    #video {
-      width: 100%;
-      max-width: 320px;
-      border-radius: 8px;
-      box-shadow: 0 0 12px #22c55e;
-      background: #000;
-    }
-
-    #result {
-      margin-top: 15px;
-      min-height: 30px;
-      font-weight: 600;
-      font-size: 18px;
+      background-color: #1e293b;
+      padding: 10px;
       text-align: center;
-      user-select: none;
-    }
-
-    #profile-info {
-      margin-top: 15px;
-      padding: 12px;
-      background: #334155;
-      border-radius: 8px;
-      width: 100%;
-      color: #cbd5e1;
-      display: none;
-    }
-    #profile-info div {
-      margin: 4px 0;
-    }
-
-    .status-success {
-      color: #4ade80;
-    }
-    .status-error {
-      color: #f87171;
-    }
-    .status-warning {
-      color: #fbbf24;
-    }
-
-    /* Buttons */
-    #controls {
-      margin-top: 20px;
-      display: flex;
-      gap: 15px;
-      width: 100%;
-      justify-content: center;
-    }
-    button {
-      cursor: pointer;
-      background-color: #22c55e;
-      border: none;
-      padding: 12px 22px;
+      font-size: 1.4em;
       font-weight: bold;
-      font-size: 16px;
-      color: #121212;
-      border-radius: 8px;
-      box-shadow: 0 0 12px #22c55eaa;
-      transition: background-color 0.3s ease;
     }
-    button:hover {
-      background-color: #16a34a;
-      box-shadow: 0 0 16px #16a34acc;
+    #scanner {
+      text-align: center;
+      padding: 10px;
     }
-    button:disabled {
-      background-color: #6ee7b7;
-      cursor: not-allowed;
-      box-shadow: none;
-    }
-
-    /* Right panel: Logs & history */
-    #logs-panel {
-      background: #1f2937;
-      border-radius: 12px;
-      padding: 20px;
-      box-sizing: border-box;
-      display: flex;
-      flex-direction: column;
-      max-height: 80vh;
-      overflow: auto;
-    }
-
-    /* Logs search + buttons container */
     #logs-controls {
+      padding: 10px;
       display: flex;
-      gap: 10px;
-      margin-bottom: 12px;
-      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
     }
-    #logs-search {
-      flex-grow: 1;
-      padding: 8px 12px;
-      border-radius: 6px;
-      border: none;
-      font-size: 16px;
-      box-sizing: border-box;
+    #logs {
+      padding: 10px;
+      overflow-x: auto;
     }
-
-    #print-btn, #export-btn {
-      background-color: #3b82f6;
-      color: white;
-      padding: 8px 14px;
-      font-weight: 600;
-      border-radius: 6px;
-      border: none;
-      cursor: pointer;
-      box-shadow: 0 0 8px #3b82f6aa;
-      transition: background-color 0.3s ease;
-    }
-    #print-btn:hover, #export-btn:hover {
-      background-color: #2563eb;
-      box-shadow: 0 0 10px #2563ebcc;
-    }
-
-    /* New Reset Button style */
-    #reset-btn {
-      background:#ef4444;
-      color:white;
-      padding:8px 14px;
-      font-weight:600;
-      border-radius:6px;
-      border:none;
-      cursor:pointer;
-      box-shadow:0 0 8px #ef4444aa;
-      transition: background-color 0.3s ease;
-    }
-    #reset-btn:hover {
-      background:#b91c1c;
-      box-shadow: 0 0 12px #b91c1ccc;
-    }
-
     table {
-      border-collapse: collapse;
       width: 100%;
-      font-size: 14px;
-      color: #cbd5e1;
+      border-collapse: collapse;
+      margin-top: 10px;
+      background-color: #1e293b;
     }
     th, td {
-      border: 1px solid #475569;
-      padding: 8px 12px;
+      border: 1px solid #334155;
+      padding: 8px;
       text-align: left;
-      user-select: text;
     }
     th {
-      background: #334155;
+      background-color: #0f172a;
       cursor: pointer;
-      position: relative;
     }
-    th .sort-arrow {
-      position: absolute;
-      right: 8px;
-      top: 50%;
-      transform: translateY(-50%);
-      font-size: 14px;
-      color: #94a3b8;
-      user-select: none;
-    }
-    tr:nth-child(even) {
-      background: #1e293b;
-    }
-    tr:hover {
-      background: #475569;
-    }
-    .no-records {
-      text-align: center;
-      font-style: italic;
-      padding: 20px 0;
-      color: #94a3b8;
-    }
-
-    /* Scan History */
-    #history-panel {
-      margin-top: 25px;
-      padding-top: 12px;
-      border-top: 1px solid #475569;
-      flex-grow: 1;
-      overflow-y: auto;
-      color: #cbd5e1;
-      font-size: 13px;
-    }
-    #history-panel h3 {
-      margin-bottom: 8px;
-      font-weight: 700;
-      color: #a5b4fc;
-      user-select: none;
-    }
-    #history-filter {
-      width: 100%;
-      padding: 6px 10px;
-      border-radius: 6px;
+    button {
+      background-color: #06b6d4;
+      color: white;
       border: none;
-      margin-bottom: 10px;
-      font-size: 14px;
-      box-sizing: border-box;
-      color: #1f2937;
+      padding: 8px 12px;
+      border-radius: 4px;
+      cursor: pointer;
     }
-    #history-list {
-      max-height: 220px;
-      overflow-y: auto;
-      background: #334155;
-      border-radius: 6px;
-      padding: 8px;
+    button:hover {
+      background-color: #0891b2;
     }
-    #history-list div {
-      margin-bottom: 6px;
-      user-select: none;
-    }
-
-    /* Responsive */
-    @media (max-width: 800px) {
-      main {
-        grid-template-columns: 1fr;
-      }
-      #logs-panel {
-        max-height: none;
-        overflow: visible;
-      }
+    input {
+      padding: 6px;
+      border-radius: 4px;
+      border: 1px solid #475569;
     }
   </style>
 </head>
 <body>
-  <header>
-    📋 Admin DTR Panel
-    <div id="clock">--:--:--</div>
-  </header>
+  <header>Admin Panel — QR Time-In</header>
+  <div id="scanner">
+    <div id="qr-reader" style="width:300px;margin:auto;"></div>
+  </div>
 
-  <main>
-    <section id="scanner-panel">
-      <video id="video" muted autoplay playsinline></video>
-      <div id="result">Initializing camera...</div>
+  <div id="logs-controls">
+    <input type="text" id="searchInput" placeholder="Search logs...">
+    <button onclick="exportCSV()">Export CSV</button>
+    <button onclick="printLogs()">Print Logs</button>
+    <button onclick="resetLogs()">Reset Logs</button>
+  </div>
 
-      <div id="profile-info">
-        <div><strong>Name:</strong> <span id="profile-name"></span></div>
-        <div><strong>Email:</strong> <span id="profile-email"></span></div>
-        <div><strong>Clinical Level:</strong> <span id="profile-clinical"></span></div>
-      </div>
-
-      <div id="controls">
-        <button id="start-btn">Start Scanner</button>
-        <button id="stop-btn" disabled>Stop Scanner</button>
-      </div>
-    </section>
-
-    <section id="logs-panel">
-      <div id="logs-controls">
-        <input id="logs-search" placeholder="Search logs..." aria-label="Search logs" />
-        <button id="print-btn" title="Print logs">🖨️ Print</button>
-        <button id="export-btn" title="Export logs as CSV">💾 Export</button>
-        <!-- RESET BUTTON -->
-        <button id="reset-btn" title="Reset Today's Logs">🔄 Reset Today</button>
-      </div>
-
-      <table id="logs-table" aria-live="polite" role="grid">
-        <thead>
-          <tr>
-            <th data-key="uid">User ID <span class="sort-arrow"></span></th>
-            <th data-key="name">Name <span class="sort-arrow"></span></th>
-            <th data-key="email">Email <span class="sort-arrow"></span></th>
-            <th data-key="clinicalLevel">Clinical Level <span class="sort-arrow"></span></th>
-            <th data-key="date">Date <span class="sort-arrow"></span></th>
-            <th data-key="time">Time In <span class="sort-arrow"></span></th>
-          </tr>
-        </thead>
-        <tbody id="logs-body">
-          <tr><td colspan="6" class="no-records">Loading logs...</td></tr>
-        </tbody>
-      </table>
-
-      <div id="history-panel" aria-live="polite" aria-label="Scan history panel">
-        <h3>Scan History</h3>
-        <input id="history-filter" placeholder="Filter scan history..." aria-label="Filter scan history" />
-        <div id="history-list">
-          <div>No scans yet.</div>
-        </div>
-      </div>
-    </section>
-  </main>
-  <!-- ZXing library -->
+  <div id="logs">
+    <table id="logsTable">
+      <thead>
+        <tr>
+          <th onclick="sortTable(0)">Name</th>
+          <th onclick="sortTable(1)">Email</th>
+          <th onclick="sortTable(2)">Time</th>
+        </tr>
+      </thead>
+      <tbody id="logsBody"></tbody>
+    </table>
+  </div>
+  <!-- ZXing library (UMD) -->
   <script src="https://cdn.jsdelivr.net/npm/@zxing/library@0.19.1/umd/index.min.js"></script>
+
+  <!-- Main module script -->
   <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-  import { getDatabase, ref, get, set, onValue, remove, push } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+  import {
+    getDatabase,
+    ref,
+    onValue,
+    get,
+    set,
+    remove,
+  } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 
+  // --------- Firebase config (your project) ----------
   const firebaseConfig = {
     apiKey: "AIzaSyBYYZrsZECXM2UpW4-38sGQLaPqAqkjSWI",
     authDomain: "dtr-project-66048.firebaseapp.com",
@@ -350,395 +117,314 @@
     appId: "1:271445506225:web:fcb04d0454e1302de14a90",
     measurementId: "G-R22CLKSPCP"
   };
+  // ---------------------------------------------------
 
   const app = initializeApp(firebaseConfig);
   const db = getDatabase(app);
 
+  // DOM refs
+  const qrContainer = document.getElementById('qr-reader');
+  const logsBody = document.getElementById('logsBody');
+  const searchInput = document.getElementById('searchInput');
+
+  // create a video element for scanner (insert into qrContainer)
+  const videoEl = document.createElement('video');
+  videoEl.setAttribute('playsinline', 'true');
+  videoEl.style.width = '320px';
+  videoEl.style.maxWidth = '100%';
+  videoEl.style.borderRadius = '8px';
+  videoEl.style.boxShadow = '0 0 12px rgba(34,197,94,0.3)';
+  qrContainer.innerHTML = ''; // clear placeholder
+  qrContainer.appendChild(videoEl);
+
+  // ZXing code reader
   const codeReader = new ZXing.BrowserQRCodeReader();
-  const videoElement = document.getElementById('video');
-
-  const resultDiv = document.getElementById('result');
-  const profileInfo = document.getElementById('profile-info');
-  const profileName = document.getElementById('profile-name');
-  const profileEmail = document.getElementById('profile-email');
-  const profileClinical = document.getElementById('profile-clinical');
-
-  const startBtn = document.getElementById('start-btn');
-  const stopBtn = document.getElementById('stop-btn');
-  const resetBtn = document.getElementById('reset-btn');
-
-  const logsBody = document.getElementById('logs-body');
-  const logsSearch = document.getElementById('logs-search');
-
-  const historyList = document.getElementById('history-list');
-  const historyFilterInput = document.getElementById('history-filter');
-
   let scanning = false;
   let scanCooldowns = {};
-  let scanHistory = [];
-  let logsData = [];
-  let currentSort = { key: 'time', ascending: false };
 
-  // Helpers
-  function todayYMD() {
-    const d = new Date();
+  // In-memory logs for current day
+  let logsData = []; // each item: { uid, name, email, clinicalLevel, date, time, ts }
+
+  // Helpers: date/time functions
+  function todayYMD(d = new Date()){
     const pad = n => n < 10 ? '0' + n : n;
     return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
   }
-  function timeHMS() {
-    const d = new Date();
+  function timeHMS(d = new Date()){
     const pad = n => n < 10 ? '0' + n : n;
     return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
   }
-  function escapeHtml(text) {
-    if(!text) return '';
-    return text.replace(/[&<>"']/g, function(m) {
-      return ({
-        '&': '&amp;',
-        '<': '&lt;',
-        '>': '&gt;',
-        '"': '&quot;',
-        "'": '&#39;'
-      })[m];
-    });
+
+  // sanitize
+  function escapeHtml(s){
+    if (s == null) return '';
+    return String(s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
   }
 
-  // Real-time clock update
-  const clockElem = document.getElementById('clock');
-  function updateClock() {
-    const now = new Date();
-    const pad = n => n < 10 ? '0' + n : n;
-    clockElem.textContent = `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
-  }
-  setInterval(updateClock, 1000);
-  updateClock();
-
-  // Status message
-  function setResult(message, status='info') {
-    const icons = { success: '✅', error: '❌', warning: '⚠️', info: 'ℹ️' };
-    resultDiv.textContent = `${icons[status] || ''} ${message}`;
-    resultDiv.className = '';
-    resultDiv.classList.add(`status-${status}`);
-  }
-
-  // Start/Stop Scanner
-  async function startScanner() {
-    if (scanning) return;
-    try {
-      const devices = await codeReader.listVideoInputDevices();
-      if (devices.length === 0) {
-        setResult('No camera devices found.', 'error');
-        return;
-      }
-      const backCamera = devices.find(d => d.label.toLowerCase().includes('back')) || devices[0];
-      scanning = true;
-      setResult('Point camera to a QR code.', 'info');
-
-      await codeReader.decodeFromVideoDevice(backCamera.deviceId, videoElement, (result, err) => {
-        if (result) handleScan(result.getText());
-        else if (err && !(err instanceof ZXing.NotFoundException)) {
-          console.error(err);
-          setResult('Camera error: ' + err.message, 'error');
-        }
-      });
-      startBtn.disabled = true;
-      stopBtn.disabled = false;
-    } catch (e) {
-      setResult('Camera error: ' + e.message, 'error');
-    }
-  }
-  function stopScanner() {
-    if (!scanning) return;
-    codeReader.reset();
-    scanning = false;
-    setResult('Scanner stopped.', 'info');
-    startBtn.disabled = false;
-    stopBtn.disabled = true;
-    profileInfo.style.display = 'none';
+  // Render logs table
+  function renderLogs(filter = ''){
+    const ft = filter.trim().toLowerCase();
+    const rows = logsData
+      .filter(r => {
+        if(!ft) return true;
+        return (r.name || '').toLowerCase().includes(ft)
+          || (r.email || '').toLowerCase().includes(ft)
+          || (r.clinicalLevel || '').toLowerCase().includes(ft)
+          || (r.time || '').toLowerCase().includes(ft);
+      })
+      .map(r => `<tr>
+        <td>${escapeHtml(r.name||'')}</td>
+        <td>${escapeHtml(r.email||'')}</td>
+        <td>${escapeHtml(r.clinicalLevel||'')}</td>
+        <td>${escapeHtml(r.date||'')}</td>
+        <td>${escapeHtml(r.time||'')}</td>
+      </tr>`).join('');
+    logsBody.innerHTML = rows || `<tr><td colspan="5" style="text-align:center;color:#94a3b8">No records</td></tr>`;
   }
 
-  // Scan handling
-  async function handleScan(text) {
-    if (!scanning) return;
-    const uid = text.trim();
-    if (!uid) return;
-
-    const now = Date.now();
-    if (scanCooldowns[uid] && (now - scanCooldowns[uid]) < 5000) return; // 5 sec cooldown per uid
-    scanCooldowns[uid] = now;
-
-    setResult(`Processing UID: ${uid} ...`, 'info');
-    profileInfo.style.display = 'none';
-
-    const dateStr = todayYMD();
-    const timeStr = timeHMS();
-
-    try {
-      const userRef = ref(db, `users/${uid}/profile`);
-      const userSnap = await get(userRef);
-      if (!userSnap.exists()) {
-        setResult(`UID ${uid} not registered.`, 'error');
-        return;
-      }
-      const profile = userSnap.val();
-
-      const clinicalLevel = profile.clinicalLevel || 'N/A';
-
-      const dtrRef = ref(db, `users/${uid}/dtr/${dateStr}`);
-      const dtrSnap = await get(dtrRef);
-      if (dtrSnap.exists()) {
-        setResult(`User ${profile.name} already timed in today at ${dtrSnap.val().timeIn}`, 'warning');
-        showProfile(profile.name, profile.email, clinicalLevel);
-        addToHistory(uid, profile.name, profile.email || '-', clinicalLevel, dateStr, dtrSnap.val().timeIn, false);
-        return;
-      }
-
-      // Save DTR entry
-      await set(dtrRef, { timeIn: timeStr, date: dateStr, ts: Date.now() });
-      await set(ref(db, `timeIns/${dateStr}/${uid}`), {
-        uid, name: profile.name, email: profile.email || '-', clinicalLevel, date: dateStr, time: timeStr, ts: Date.now()
-      });
-
-      setResult(`Recorded time-in for ${profile.name} at ${timeStr}`, 'success');
-      showProfile(profile.name, profile.email, clinicalLevel);
-      addToHistory(uid, profile.name, profile.email || '-', clinicalLevel, dateStr, timeStr, true);
-    } catch (err) {
-      console.error('Error saving DTR:', err);
-      setResult('Error saving time-in: ' + err.message, 'error');
-      profileInfo.style.display = 'none';
-    }
-  }
-
-  function showProfile(name, email, clinicalLevel) {
-    profileName.textContent = name || '-';
-    profileEmail.textContent = email || '-';
-    profileClinical.textContent = clinicalLevel || '-';
-    profileInfo.style.display = 'block';
-  }
-
-  // Scan History Panel
-  function addToHistory(uid, name, email, clinicalLevel, date, time, success) {
-    const entry = { uid, name, email, clinicalLevel, date, time, success, ts: Date.now() };
-    scanHistory.unshift(entry);
-    renderHistory(historyFilterInput.value);
-  }
-  function renderHistory(filterText = '') {
-    const ft = filterText.toLowerCase();
-    const filtered = scanHistory.filter(e =>
-      e.uid.toLowerCase().includes(ft) ||
-      e.name.toLowerCase().includes(ft) ||
-      e.email.toLowerCase().includes(ft) ||
-      e.clinicalLevel.toLowerCase().includes(ft) ||
-      e.date.toLowerCase().includes(ft) ||
-      e.time.toLowerCase().includes(ft)
-    );
-    if (filtered.length === 0) {
-      historyList.innerHTML = '<div>No matching scans.</div>';
-      return;
-    }
-    historyList.innerHTML = filtered.map(e => {
-      const color = e.success ? '#4ade80' : '#fbbf24';
-      return `<div style="color:${color};">
-        <strong>${escapeHtml(e.name)}</strong> (${escapeHtml(e.uid)}) — Clinical Level: ${escapeHtml(e.clinicalLevel)} — ${escapeHtml(e.date)} ${escapeHtml(e.time)}
-      </div>`;
-    }).join('');
-  }
-  historyFilterInput.addEventListener('input', () => {
-    renderHistory(historyFilterInput.value);
-  });
-
-  // Logs panel: listen to Firebase timeIns updates
-  function listenLogs() {
+  // Listen to today's logs in /timeIns/{date}
+  function listenTodayLogs(){
     const dateStr = todayYMD();
     const logsRef = ref(db, `timeIns/${dateStr}`);
-    onValue(logsRef, (snapshot) => {
-      logsData = snapshot.val() ? Object.values(snapshot.val()) : [];
-      sortLogs(currentSort.key, currentSort.ascending);
-      renderLogs(logsSearch.value);
+    onValue(logsRef, snap => {
+      const val = snap.val() || {};
+      // normalize to array
+      logsData = Object.values(val).map(v => ({
+        uid: v.uid || '',
+        name: v.name || '',
+        email: v.email || '',
+        clinicalLevel: v.clinicalLevel || (v.clinicalLevel === 0 ? '0' : ''),
+        date: v.date || dateStr,
+        time: v.time || '',
+        ts: v.ts || 0
+      })).sort((a,b) => (b.ts||0) - (a.ts||0));
+      renderLogs(searchInput.value || '');
     });
   }
 
-  // Render logs table filtered by search
-  function renderLogs(filterText = '') {
-    const ft = filterText.toLowerCase();
-    const filtered = logsData.filter(e =>
-      e.uid.toLowerCase().includes(ft) ||
-      e.name.toLowerCase().includes(ft) ||
-      e.email.toLowerCase().includes(ft) ||
-      (e.clinicalLevel && e.clinicalLevel.toLowerCase().includes(ft)) ||
-      (e.date && e.date.toLowerCase().includes(ft)) ||
-      (e.time && e.time.toLowerCase().includes(ft))
-    );
-
-    if (filtered.length === 0) {
-      logsBody.innerHTML = `<tr><td colspan="6" class="no-records">No matching records</td></tr>`;
-      return;
-    }
-
-    logsBody.innerHTML = filtered.map(entry =>
-      `<tr>
-        <td>${escapeHtml(entry.uid)}</td>
-        <td>${escapeHtml(entry.name)}</td>
-        <td>${escapeHtml(entry.email)}</td>
-        <td>${escapeHtml(entry.clinicalLevel || 'N/A')}</td>
-        <td>${escapeHtml(entry.date || '')}</td>
-        <td>${escapeHtml(entry.time)}</td>
-      </tr>`).join('');
-  }
-
-  // Sorting logs
-  function sortLogs(key, ascending) {
-    logsData.sort((a,b) => {
-      let valA = a[key] ? a[key].toString().toLowerCase() : '';
-      let valB = b[key] ? b[key].toString().toLowerCase() : '';
-      if (key === 'time' || key === 'date') {
-        // For date/time, lex order works fine
-      }
-      if (key === 'clinicalLevel') {
-        const numA = parseInt(valA, 10);
-        const numB = parseInt(valB, 10);
-        if (!isNaN(numA) && !isNaN(numB)) {
-          return ascending ? numA - numB : numB - numA;
-        }
-      }
-      if (valA < valB) return ascending ? -1 : 1;
-      if (valA > valB) return ascending ? 1 : -1;
-      return 0;
-    });
-  }
-
-  // Handle table header clicks for sorting
-  document.querySelectorAll('#logs-table th').forEach(th => {
-    th.addEventListener('click', () => {
-      const key = th.getAttribute('data-key');
-      if (!key) return;
-
-      if (currentSort.key === key) {
-        currentSort.ascending = !currentSort.ascending;
-      } else {
-        currentSort.key = key;
-        currentSort.ascending = true;
-      }
-      sortLogs(currentSort.key, currentSort.ascending);
-      renderLogs(logsSearch.value);
-      updateSortArrows();
-    });
-  });
-
-  // Update sorting arrow icons in headers
-  function updateSortArrows() {
-    document.querySelectorAll('#logs-table th').forEach(th => {
-      const arrowSpan = th.querySelector('.sort-arrow');
-      if (!arrowSpan) return;
-      const key = th.getAttribute('data-key');
-      if (key === currentSort.key) {
-        arrowSpan.textContent = currentSort.ascending ? '▲' : '▼';
-      } else {
-        arrowSpan.textContent = '';
-      }
-    });
-  }
-
-  // Search logs input event
-  logsSearch.addEventListener('input', () => {
-    renderLogs(logsSearch.value);
-  });
-
-  // Export logs to CSV
-  function exportCSV() {
-    if (logsData.length === 0) {
+  // Export CSV (exposed to global for Part1 buttons)
+  function exportCSV(){
+    if (!logsData || logsData.length === 0){
       alert('No data to export');
       return;
     }
-    const headers = ['User ID', 'Name', 'Email', 'Clinical Level', 'Date', 'Time In'];
-    const rows = logsData.map(e => [
-      e.uid,
-      e.name,
-      e.email,
-      e.clinicalLevel || 'N/A',
-      e.date || '',
-      e.time
-    ]);
-    let csvContent = 'data:text/csv;charset=utf-8,';
-    csvContent += headers.join(',') + '\r\n';
-    rows.forEach(row => {
-      csvContent += row.map(field => `"${field.replace(/"/g, '""')}"`).join(',') + '\r\n';
+    const headers = ['Name','Email','Clinical Level','Date','Time In'];
+    const rows = logsData.map(r => [r.name, r.email, r.clinicalLevel || '', r.date, r.time]);
+    let csv = headers.join(',') + '\r\n';
+    rows.forEach(cols => {
+      csv += cols.map(c => `"${String(c||'').replace(/"/g,'""')}"`).join(',') + '\r\n';
     });
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement('a');
-    link.setAttribute('href', encodedUri);
-    link.setAttribute('download', `dtr_logs_${todayYMD()}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `dtr_logs_${todayYMD()}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
   }
+  window.exportCSV = exportCSV;
 
-  // Print logs table
-  function printLogs() {
-    const printWindow = window.open('', '', 'width=900,height=600');
-    printWindow.document.write('<html><head><title>Print DTR Logs</title>');
-    printWindow.document.write('<style>body{font-family:Arial,sans-serif;color:#222;}table{width:100%;border-collapse:collapse;}th,td{border:1px solid #ccc;padding:8px;text-align:left;}th{background:#eee;}</style>');
-    printWindow.document.write('</head><body>');
-    printWindow.document.write('<h2>DTR Logs - ' + todayYMD() + '</h2>');
-    printWindow.document.write(document.getElementById('logs-table').outerHTML);
-    printWindow.document.write('</body></html>');
-    printWindow.document.close();
-    printWindow.focus();
-    printWindow.print();
-    printWindow.close();
+  // Print logs
+  function printLogs(){
+    const html = `<html><head><title>DTR Logs ${todayYMD()}</title>
+      <style>body{font-family:Arial;}table{width:100%;border-collapse:collapse;}th,td{border:1px solid #ccc;padding:6px;text-align:left;}th{background:#eee}</style>
+      </head><body>
+      <h2>DTR Logs - ${todayYMD()}</h2>
+      <table><thead><tr><th>Name</th><th>Email</th><th>Clinical Level</th><th>Date</th><th>Time</th></tr></thead><tbody>
+      ${logsData.map(r => `<tr><td>${escapeHtml(r.name)}</td><td>${escapeHtml(r.email)}</td><td>${escapeHtml(r.clinicalLevel)}</td><td>${escapeHtml(r.date)}</td><td>${escapeHtml(r.time)}</td></tr>`).join('')}
+      </tbody></table></body></html>`;
+    const w = window.open('', '_blank', 'width=900,height=700');
+    w.document.write(html);
+    w.document.close();
+    w.focus();
+    w.print();
   }
+  window.printLogs = printLogs;
 
-  // Event listeners for buttons
-  startBtn.addEventListener('click', startScanner);
-  stopBtn.addEventListener('click', stopScanner);
-  document.getElementById('export-btn').addEventListener('click', exportCSV);
-  document.getElementById('print-btn').addEventListener('click', printLogs);
-  // Add Reset Logs button dynamically for UI
-  const controlsDiv = document.getElementById('logs-controls');
-  const resetBtn = document.createElement('button');
-  resetBtn.id = 'reset-btn';
-  resetBtn.title = 'Reset all logs';
-  resetBtn.textContent = '🧹 Reset Logs';
-  resetBtn.style.backgroundColor = '#ef4444'; // red color
-  resetBtn.style.color = 'white';
-  resetBtn.style.fontWeight = '600';
-  resetBtn.style.borderRadius = '6px';
-  resetBtn.style.border = 'none';
-  resetBtn.style.cursor = 'pointer';
-  resetBtn.style.boxShadow = '0 0 8px #ef4444aa';
-  resetBtn.style.transition = 'background-color 0.3s ease';
-  resetBtn.style.padding = '8px 14px';
-  resetBtn.addEventListener('mouseenter', () => resetBtn.style.backgroundColor = '#b91c1c');
-  resetBtn.addEventListener('mouseleave', () => resetBtn.style.backgroundColor = '#ef4444');
-  controlsDiv.appendChild(resetBtn);
-
-  // Reset logs function
-  async function resetLogs() {
-    if (!confirm('Are you sure you want to delete all logs for today? This action cannot be undone.')) {
-      return;
-    }
+  // Reset logs (archive to /archives/{date} then remove /timeIns/{date})
+  async function resetLogs(){
+    if (!confirm('Archive today and clear live results? This will move current day logs to /archives/{date} and clear live results.')) return;
+    const dateStr = todayYMD();
+    const liveRef = ref(db, `timeIns/${dateStr}`);
+    const archiveRef = ref(db, `archives/${dateStr}`);
     try {
-      const dateStr = todayYMD();
-      const logsRef = ref(db, `timeIns/${dateStr}`);
-      await remove(logsRef);
-      scanHistory = [];
+      // get live
+      const snapshot = await get(liveRef);
+      if (!snapshot.exists()){
+        alert('No live logs to archive for today.');
+        return;
+      }
+      const data = snapshot.val();
+      // write to archives (overwrite safe)
+      await set(archiveRef, data);
+      // remove live
+      await remove(liveRef);
+      // also optionally remove per-user DTR entries (under users/{uid}/dtr/{date})? We'll keep them
+      // refresh local data
       logsData = [];
       renderLogs('');
-      renderHistory('');
-      setResult('Logs reset successfully.', 'success');
-    } catch (err) {
-      console.error('Error resetting logs:', err);
-      setResult('Failed to reset logs: ' + err.message, 'error');
+      alert('Archived and cleared today\'s logs.');
+    } catch(err){
+      console.error('resetLogs error', err);
+      alert('Failed to reset logs: ' + (err.message || err));
     }
   }
-  resetBtn.addEventListener('click', resetLogs);
+  window.resetLogs = resetLogs;
 
-  // Initialize listeners & UI on load
-  window.onload = () => {
-    listenLogs();
-    updateSortArrows();
-    setResult('Scanner ready. Click "Start Scanner".', 'info');
-  };
+  // Sort table helper (called by inline onclicks in Part1)
+  let currentSort = { col: -1, asc: true };
+  function sortTable(colIndex){
+    // columns: 0=name,1=email,2=time (Part1 used 3 columns)
+    const keyMap = {0:'name',1:'email',2:'time'};
+    const key = keyMap[colIndex];
+    if (!key) return;
+    if (currentSort.col === colIndex) currentSort.asc = !currentSort.asc;
+    else { currentSort.col = colIndex; currentSort.asc = true; }
+    logsData.sort((a,b) => {
+      const va = (a[key] || '').toString().toLowerCase();
+      const vb = (b[key] || '').toString().toLowerCase();
+      if (va < vb) return currentSort.asc ? -1 : 1;
+      if (va > vb) return currentSort.asc ? 1 : -1;
+      return 0;
+    });
+    renderLogs(searchInput.value || '');
+  }
+  window.sortTable = sortTable;
+
+  // Start scanner (using ZXing) and store records in DB when scanned
+  async function startScanner(){
+    if (scanning) return;
+    try {
+      const devices = await codeReader.listVideoInputDevices();
+      if (!devices || devices.length === 0){
+        alert('No camera found.');
+        return;
+      }
+      const preferred = devices.find(d => /back|rear|environment/i.test(d.label)) || devices[0];
+      scanning = true;
+      // start decoding from device
+      codeReader.decodeFromVideoDevice(preferred.deviceId, videoEl, async (result, err) => {
+        if (result && result.getText){
+          const text = result.getText();
+          await handleScanResult(text);
+        }
+        if (err && !(err instanceof ZXing.NotFoundException)) {
+          console.error(err);
+        }
+      });
+    } catch(e){
+      console.error('startScanner error', e);
+      alert('Scanner error: ' + e.message);
+    }
+  }
+
+  // Stop scanner
+  function stopScanner(){
+    try {
+      codeReader.reset();
+      scanning = false;
+    } catch(e){}
+  }
+
+  // Handle a scanned QR (UID expected)
+  async function handleScanResult(text){
+    const uid = String(text || '').trim();
+    if (!uid) return;
+    // simple debounce per uid
+    const now = Date.now();
+    if (scanCooldowns[uid] && (now - scanCooldowns[uid] < 4000)) return;
+    scanCooldowns[uid] = now;
+
+    const dateStr = todayYMD();
+    const timeStr = timeHMS();
+    try {
+      // fetch profile: users/{uid}/profile
+      const profSnap = await get(ref(db, `users/${uid}/profile`));
+      if (!profSnap.exists()){
+        alert('UID not registered: ' + uid);
+        return;
+      }
+      const profile = profSnap.val();
+      const clinicalLevel = profile.clinicalLevel || '';
+
+      // check if already timed in today (users/{uid}/dtr/{date})
+      const dtrSnap = await get(ref(db, `users/${uid}/dtr/${dateStr}`));
+      if (dtrSnap.exists()){
+        alert(`${profile.name} already timed in at ${dtrSnap.val().timeIn}`);
+        return;
+      }
+
+      // write DTR per-user and write timeIns/{date}/{uid}
+      await set(ref(db, `users/${uid}/dtr/${dateStr}`), { timeIn: timeStr, date: dateStr, ts: Date.now() });
+      await set(ref(db, `timeIns/${dateStr}/${uid}`), {
+        uid,
+        name: profile.name || '',
+        email: profile.email || '',
+        clinicalLevel: clinicalLevel || '',
+        date: dateStr,
+        time: timeStr,
+        ts: Date.now()
+      });
+
+      // success feedback
+      // update local logsData is handled by onValue listener
+    } catch(err){
+      console.error('handleScanResult', err);
+      alert('Failed to record time-in: ' + (err.message || err));
+    }
+  }
+
+  // wire start/stop buttons: create small control UI if not present
+  // Part1 did not include start/stop buttons; if you want, you can add them. For demo we auto-start scanner.
+  try { startScanner(); } catch(e){ console.warn('auto start failed', e); }
+
+  // Search filtering
+  searchInput.addEventListener('input', () => {
+    renderLogs(searchInput.value || '');
+  });
+
+  // Auto midnight archive: schedule next midnight then archive+clear
+  function scheduleMidnightArchive(){
+    const now = new Date();
+    const next = new Date(now.getFullYear(), now.getMonth(), now.getDate()+1, 0,0,5); // 00:00:05 next day
+    const ms = next.getTime() - now.getTime();
+    setTimeout(async () => {
+      try {
+        const dateStr = todayYMD(new Date(Date.now() - 24*3600*1000)); // archive the previous day
+        const liveRef = ref(db, `timeIns/${dateStr}`);
+        const archiveRef = ref(db, `archives/${dateStr}`);
+        const snap = await get(liveRef);
+        if (snap.exists()){
+          await set(archiveRef, snap.val());
+          await remove(liveRef);
+          console.info('Auto-archived logs for', dateStr);
+        } else {
+          console.info('No logs to archive for', dateStr);
+        }
+      } catch(e){
+        console.error('Auto-archive failed', e);
+      } finally {
+        scheduleMidnightArchive(); // reschedule for next day
+      }
+    }, ms);
+  }
+  // start the schedule
+  scheduleMidnightArchive();
+
+  // Start listening to current day's logs
+  listenTodayLogs();
+
+  // Expose some functions globally because Part1 buttons call them inline
+  window.exportCSV = exportCSV;
+  window.printLogs = printLogs;
+  window.resetLogs = resetLogs;
+  window.sortTable = sortTable;
+  // also expose start/stop if needed
+  window.startScanner = startScanner;
+  window.stopScanner = stopScanner;
+
   </script>
 </body>
 </html>
