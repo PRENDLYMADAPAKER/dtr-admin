@@ -171,6 +171,23 @@
       box-shadow: 0 0 10px #2563ebcc;
     }
 
+    /* New Reset Button style */
+    #reset-btn {
+      background:#ef4444;
+      color:white;
+      padding:8px 14px;
+      font-weight:600;
+      border-radius:6px;
+      border:none;
+      cursor:pointer;
+      box-shadow:0 0 8px #ef4444aa;
+      transition: background-color 0.3s ease;
+    }
+    #reset-btn:hover {
+      background:#b91c1c;
+      box-shadow: 0 0 12px #b91c1ccc;
+    }
+
     table {
       border-collapse: collapse;
       width: 100%;
@@ -288,6 +305,8 @@
         <input id="logs-search" placeholder="Search logs..." aria-label="Search logs" />
         <button id="print-btn" title="Print logs">🖨️ Print</button>
         <button id="export-btn" title="Export logs as CSV">💾 Export</button>
+        <!-- RESET BUTTON -->
+        <button id="reset-btn" title="Reset Today's Logs">🔄 Reset Today</button>
       </div>
 
       <table id="logs-table" aria-live="polite" role="grid">
@@ -315,12 +334,11 @@
       </div>
     </section>
   </main>
-
   <!-- ZXing library -->
   <script src="https://cdn.jsdelivr.net/npm/@zxing/library@0.19.1/umd/index.min.js"></script>
   <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-  import { getDatabase, ref, get, set, onValue } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+  import { getDatabase, ref, get, set, onValue, remove, push } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 
   const firebaseConfig = {
     apiKey: "AIzaSyBYYZrsZECXM2UpW4-38sGQLaPqAqkjSWI",
@@ -347,6 +365,7 @@
 
   const startBtn = document.getElementById('start-btn');
   const stopBtn = document.getElementById('stop-btn');
+  const resetBtn = document.getElementById('reset-btn');
 
   const logsBody = document.getElementById('logs-body');
   const logsSearch = document.getElementById('logs-search');
@@ -372,6 +391,7 @@
     return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
   }
   function escapeHtml(text) {
+    if(!text) return '';
     return text.replace(/[&<>"']/g, function(m) {
       return ({
         '&': '&amp;',
@@ -444,7 +464,7 @@
     if (!uid) return;
 
     const now = Date.now();
-    if (scanCooldowns[uid] && (now - scanCooldowns[uid]) < 5000) return;
+    if (scanCooldowns[uid] && (now - scanCooldowns[uid]) < 5000) return; // 5 sec cooldown per uid
     scanCooldowns[uid] = now;
 
     setResult(`Processing UID: ${uid} ...`, 'info');
@@ -473,6 +493,7 @@
         return;
       }
 
+      // Save DTR entry
       await set(dtrRef, { timeIn: timeStr, date: dateStr, ts: Date.now() });
       await set(ref(db, `timeIns/${dateStr}/${uid}`), {
         uid, name: profile.name, email: profile.email || '-', clinicalLevel, date: dateStr, time: timeStr, ts: Date.now()
@@ -571,10 +592,9 @@
       let valA = a[key] ? a[key].toString().toLowerCase() : '';
       let valB = b[key] ? b[key].toString().toLowerCase() : '';
       if (key === 'time' || key === 'date') {
-        // For date/time, compare as strings YYYY-MM-DD or HH:MM:SS works lex order
+        // For date/time, lex order works fine
       }
       if (key === 'clinicalLevel') {
-        // If clinical levels are numeric strings, sort numerically, else lexicographically
         const numA = parseInt(valA, 10);
         const numB = parseInt(valB, 10);
         if (!isNaN(numA) && !isNaN(numB)) {
@@ -673,6 +693,45 @@
   stopBtn.addEventListener('click', stopScanner);
   document.getElementById('export-btn').addEventListener('click', exportCSV);
   document.getElementById('print-btn').addEventListener('click', printLogs);
+  // Add Reset Logs button dynamically for UI
+  const controlsDiv = document.getElementById('logs-controls');
+  const resetBtn = document.createElement('button');
+  resetBtn.id = 'reset-btn';
+  resetBtn.title = 'Reset all logs';
+  resetBtn.textContent = '🧹 Reset Logs';
+  resetBtn.style.backgroundColor = '#ef4444'; // red color
+  resetBtn.style.color = 'white';
+  resetBtn.style.fontWeight = '600';
+  resetBtn.style.borderRadius = '6px';
+  resetBtn.style.border = 'none';
+  resetBtn.style.cursor = 'pointer';
+  resetBtn.style.boxShadow = '0 0 8px #ef4444aa';
+  resetBtn.style.transition = 'background-color 0.3s ease';
+  resetBtn.style.padding = '8px 14px';
+  resetBtn.addEventListener('mouseenter', () => resetBtn.style.backgroundColor = '#b91c1c');
+  resetBtn.addEventListener('mouseleave', () => resetBtn.style.backgroundColor = '#ef4444');
+  controlsDiv.appendChild(resetBtn);
+
+  // Reset logs function
+  async function resetLogs() {
+    if (!confirm('Are you sure you want to delete all logs for today? This action cannot be undone.')) {
+      return;
+    }
+    try {
+      const dateStr = todayYMD();
+      const logsRef = ref(db, `timeIns/${dateStr}`);
+      await remove(logsRef);
+      scanHistory = [];
+      logsData = [];
+      renderLogs('');
+      renderHistory('');
+      setResult('Logs reset successfully.', 'success');
+    } catch (err) {
+      console.error('Error resetting logs:', err);
+      setResult('Failed to reset logs: ' + err.message, 'error');
+    }
+  }
+  resetBtn.addEventListener('click', resetLogs);
 
   // Initialize listeners & UI on load
   window.onload = () => {
@@ -680,6 +739,6 @@
     updateSortArrows();
     setResult('Scanner ready. Click "Start Scanner".', 'info');
   };
-</script>
+  </script>
 </body>
 </html>
