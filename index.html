@@ -254,6 +254,7 @@
       setResult(`Recorded time-in for ${profile.name} at ${timeStr}`, 'success');
       showProfile(profile.name, profile.email, clinical);
       addToHistory(profile.name, profile.email || '-', clinical, dateStr, timeStr, true);
+      document.getElementById('success-sound').play();
     } catch(err){
       console.error('Error saving DTR:', err);
       setResult('Error saving time-in: ' + (err.message || err), 'error');
