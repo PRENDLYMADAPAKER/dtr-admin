@@ -505,6 +505,129 @@ closeCases.addEventListener('click', ()=>{
   casesModal.style.display = 'none'; 
 });
 
+    function promptAssignInput(uid,cid){
+  const name = prompt('Type instructor name to assign:');
+  if(name && name.trim()) assignInstructorByInput(uid,cid,name.trim());
+}
+
+/***** Instructor Assignment Fixes with Real Name *****/
+async function assignInstructorToCase(name) {
+  if (!selectedCase) { showToast('No case selected','error'); return; }
+  const { uid, cid } = selectedCase;
+  const caseSnap = await db.ref(`cases/${uid}/${cid}`).get();
+  if (!caseSnap.exists()) {
+    showToast('Case no longer exists','error');
+    selectedCase = null; 
+    wheelModal.style.display='none';
+    return;
+  }
+  const caseData = caseSnap.val();
+
+  // ✅ Fetch user's real name from their profile
+  const profileSnap = await db.ref(`users/${uid}/profile`).get();
+  const profile = profileSnap.exists() ? profileSnap.val() : {};
+  const realName = profile.name || caseData.patientName || uid;
+
+  // ✅ Save to doneAssign (admin history)
+  await db.ref(`doneAssign/${uid}/${cid}`).set({
+    ...caseData,
+    instructor: name,
+    status: 'assigned',
+    realName: realName,
+    doneAt: Date.now()
+  });
+
+  // ✅ Update userCases copy
+  const userCaseSnap = await db.ref(`userCases/${uid}/${cid}`).get();
+  if (userCaseSnap.exists()) {
+    await db.ref(`userCases/${uid}/${cid}/instructor`).set(name);
+    await db.ref(`userCases/${uid}/${cid}/status`).set('assigned');
+  }
+
+  // ✅ Update cases (keep it, don’t remove)
+  await db.ref(`cases/${uid}/${cid}/instructor`).set(name);
+  await db.ref(`cases/${uid}/${cid}/status`).set('assigned');
+  await db.ref(`cases/${uid}/${cid}/realName`).set(realName);
+
+  showToast(`Assigned ${name} — marked as assigned`,'success',3500);
+
+  setTimeout(() => { 
+    wheelModal.style.display = 'none'; 
+    selectedCase = null; 
+    $('wheelResult').innerText = ''; 
+  }, 700);
+
+  loadCases();
+  loadDoneAssign();
+}
+
+async function assignInstructorByInput(uid, cid, name) {
+  if (!name) return showToast('Instructor required','warning');
+  const cSnap = await db.ref(`cases/${uid}/${cid}`).get();
+  if (!cSnap.exists()) return showToast('Case not found','error');
+
+  const cData = cSnap.val();
+
+  // ✅ Fetch user's real name from their profile
+  const profileSnap = await db.ref(`users/${uid}/profile`).get();
+  const profile = profileSnap.exists() ? profileSnap.val() : {};
+  const realName = profile.name || cData.patientName || uid;
+
+  // ✅ Save to doneAssign (admin history)
+  await db.ref(`doneAssign/${uid}/${cid}`).set({
+    ...cData,
+    instructor: name,
+    status: 'assigned',
+    realName: realName,
+    doneAt: Date.now()
+  });
+
+  // ✅ Update userCases copy
+  const ucs = await db.ref(`userCases/${uid}/${cid}`).get();
+  if (ucs.exists()) {
+    await db.ref(`userCases/${uid}/${cid}/instructor`).set(name);
+    await db.ref(`userCases/${uid}/${cid}/status`).set('assigned');
+  }
+
+  // ✅ Update cases (keep it, don’t remove)
+  await db.ref(`cases/${uid}/${cid}/instructor`).set(name);
+  await db.ref(`cases/${uid}/${cid}/status`).set('assigned');
+  await db.ref(`cases/${uid}/${cid}/realName`).set(realName);
+
+  showToast('Instructor assigned & marked','success');
+  loadCases();
+  loadDoneAssign();
+}
+
+/***** Done Assign loader + controls *****/
+const doneAssignModalEl = $('doneAssignModal'), closeDoneAssign = $('closeDoneAssign');
+closeDoneAssign.addEventListener('click', ()=>{ doneAssignModalEl.style.display = 'none'; });
+
+async function loadDoneAssign(){
+  const body = $('doneAssignBody');
+  body.innerHTML = '';
+
+  const snap = await db.ref('doneAssign').get();
+  if(!snap.exists()){
+    body.innerHTML = '<tr><td colspan="4" class="muted">No assigned cases</td></tr>';
+    return;
+  }
+
+  snap.forEach(uSnap=>{
+    uSnap.forEach(cSnap=>{
+      const c = cSnap.val();
+      // ✅ Display real names properly
+      const realName = c.realName || c.patientName || c.name || uSnap.key;
+      body.innerHTML += `<tr>
+        <td>${realName}</td>
+        <td>${c.type || '-'}</td>
+        <td>${c.instructor || '-'}</td>
+        <td>${c.doneAt ? new Date(c.doneAt).toLocaleString() : '-'}</td>
+      </tr>`;
+    });
+  });
+    }
+
   /***** Case Management (pending only) *****/
   async function loadCases() {
     const body = $('casesBody');
