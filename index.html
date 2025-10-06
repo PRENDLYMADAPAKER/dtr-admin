@@ -938,9 +938,34 @@
     if ($('doneAssignModal') && $('doneAssignModal').style.display === 'flex') loadDoneAssign();
   });
 
+  // ✅ Auto-updating Attendance Logs Listener
+  function setupLiveLogsListener() {
+    const today = getPHDateString(); // Always current PH date
+    const ref = db.ref(`adminLogs/${today}`);
+
+    // Remove old listener if any
+    ref.off('value');
+
+    // Listen for changes in today's logs
+    ref.on('value', () => {
+      loadTodayLogs(); // Refresh table instantly
+    });
+
+    // 🔁 Auto-switch to next date at midnight (PH time)
+    const now = getPHDate();
+    const midnight = new Date(now);
+    midnight.setHours(24, 0, 0, 0);
+    const msUntilMidnight = midnight - now;
+    setTimeout(setupLiveLogsListener, msUntilMidnight + 2000);
+  }
+
   // initial load
   loadCases();
   loadDoneAssign();
+  loadTodayLogs(); // ✅ load attendance once on page load
+
+  // 🟢 Start live attendance listener
+  setupLiveLogsListener();
 
   // small test toast function
   function testToast() {
