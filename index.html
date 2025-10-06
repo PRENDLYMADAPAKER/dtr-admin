@@ -409,13 +409,58 @@
     showToast('Export started','success',1200);
   }
 
-  async function printLogs(){
-    const snap = await db.ref('adminLogs').get();
-    if(!snap.exists()){ showToast('No admin logs to print','warning'); return; }
-    let rowsHtml=''; snap.forEach(dateSnap=>{ const date = dateSnap.key; dateSnap.forEach(uSnap=>{ const v=uSnap.val(); rowsHtml += `<tr><td>${date}</td><td>${v.name||''}</td><td>${v.email||''}</td><td>${v.level||''}</td><td>${v.timeIn||''}</td></tr>`; }); });
-    const html = `<!doctype html><html><head><meta charset="utf-8"><title>Attendance Logs</title><style>body{font-family:Poppins,Arial;padding:20px;color:#1f1238}table{width:100%;border-collapse:collapse}th,td{border:1px solid #ddd;padding:8px;text-align:left}th{background:#f6f0fb}</style></head><body><h2>Attendance Logs</h2><table><thead><tr><th>Date</th><th>Name</th><th>Email</th><th>Level</th><th>Time In</th></tr></thead><tbody>${rowsHtml}</tbody></table></body></html>`;
-    const w = window.open('','_blank'); w.document.write(html); w.document.close(); w.print();
-    showToast('Print dialog opened','success');
+  async function printLogs() {
+  const today = getPHDateString(); // ✅ always PH date (2025-10-06)
+  const snap = await db.ref(`adminLogs/${today}`).get();
+
+  if (!snap.exists()) {
+    showToast('No logs to print for today', 'warning');
+    return;
+  }
+
+  let rowsHtml = '';
+  snap.forEach(uSnap => {
+    const v = uSnap.val() || {};
+    rowsHtml += `
+      <tr>
+        <td>${today}</td>
+        <td>${v.name || ''}</td>
+        <td>${v.email || ''}</td>
+        <td>${v.level || ''}</td>
+        <td>${v.timeIn || ''}</td>
+      </tr>`;
+  });
+
+  const html = `
+    <!doctype html>
+    <html>
+      <head>
+        <meta charset="utf-8">
+        <title>Attendance Logs — ${today}</title>
+        <style>
+          body{font-family:Poppins,Arial;padding:20px;color:#1f1238}
+          table{width:100%;border-collapse:collapse}
+          th,td{border:1px solid #ddd;padding:8px;text-align:left}
+          th{background:#f6f0fb}
+        </style>
+      </head>
+      <body>
+        <h2>Attendance Logs — ${today}</h2>
+        <table>
+          <thead>
+            <tr><th>Date</th><th>Name</th><th>Email</th><th>Level</th><th>Time In</th></tr>
+          </thead>
+          <tbody>${rowsHtml}</tbody>
+        </table>
+      </body>
+    </html>`;
+
+  const w = window.open('', '_blank');
+  w.document.write(html);
+  w.document.close();
+  w.print();
+
+  showToast('Print dialog opened for today\'s logs', 'success');
   }
 
   async function resetLogs(){
