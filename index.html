@@ -559,13 +559,68 @@
   if(closeCases) closeCases.addEventListener('click', ()=>{ if(casesModal) casesModal.style.display = 'none'; });
 
     async function loadCases() {
-const body = $('casesBody');
-body.innerHTML = '';
-const snap = await db.ref('cases').get();
-if (!snap.exists()) {
-body.innerHTML = '<tr><td colspan="6" class="muted">No cases submitted yet</td></tr>';
-return;
-}
+  const body = $('casesBody');
+  body.innerHTML = '<tr><td colspan="6" class="muted">Loading cases...</td></tr>';
+
+  try {
+    const snap = await db.ref('cases').get();
+    if (!snap.exists()) {
+      body.innerHTML = '<tr><td colspan="6" class="muted">No cases submitted yet</td></tr>';
+      return;
+    }
+
+    const cases = [];
+
+    snap.forEach(uSnap => {
+      const uid = uSnap.key;
+      uSnap.forEach(cSnap => {
+        const c = cSnap.val() || {};
+        const cid = cSnap.key;
+
+        const ts = c.timestamp || c.ts || 0;
+        const date = ts ? new Date(ts).toLocaleString() : '-';
+        const name = c.realName || c.patientName || c.name || uid;
+
+        cases.push({
+          uid, cid,
+          name,
+          type: c.type || '-',
+          details: (c.details || '').replace(/\n/g, ' '),
+          instructor: c.instructor || 'Pending',
+          date,
+          status: c.status || 'pending'
+        });
+      });
+    });
+
+    // Show newest first
+    cases.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+
+    // Render table rows
+    body.innerHTML = '';
+    cases.forEach(c => {
+      const statusText = c.status === 'completed' ? '(Completed)' : '(Pending)';
+      body.innerHTML += `
+        <tr>
+          <td>${c.name}</td>
+          <td>${c.type}</td>
+          <td style="text-align:left">${c.details}</td>
+          <td>${c.date}</td>
+          <td id="instr-${c.uid}-${c.cid}">${c.instructor}</td>
+          <td>
+            ${statusText}<br>
+            <button onclick="openWheelAssign('${c.uid}','${c.cid}')">Assign (Wheel)</button>
+            <button onclick="promptAssignInput('${c.uid}','${c.cid}')">Assign (Input)</button>
+            <button onclick="markCaseComplete('${c.uid}','${c.cid}')">Mark Complete</button>
+            <button class="danger" onclick="deleteCase('${c.uid}','${c.cid}')">🗑 Delete</button>
+          </td>
+        </tr>`;
+    });
+  } catch (err) {
+    console.error(err);
+    body.innerHTML = '<tr><td colspan="6" class="muted">Error loading cases</td></tr>';
+  }
+    }
       
     // preload profiles
     const uids = Object.keys(snap.val() || {});
