@@ -903,6 +903,92 @@ cases.forEach(c => {
     showToast("Delete failed", "error");
   }
 }
+   /* ---------- PRINT DONE ASSIGNED ---------- */
+async function printDoneAssigned() {
+  const snap = await db.ref('doneAssign').get();
+  if (!snap.exists()) {
+    showToast('No Done-Assigned cases to print','warning');
+    return;
+  }
+
+  let rowsHtml = '';
+  snap.forEach(uSnap => {
+    uSnap.forEach(cSnap => {
+      const v = cSnap.val();
+      const name = v.realName || v.patientName || uSnap.key;
+      const type = v.type || '-';
+      const instructor = v.instructor || '-';
+      const date = v.doneAt ? new Date(v.doneAt).toLocaleString() : '-';
+      rowsHtml += `<tr>
+        <td>${name}</td>
+        <td>${type}</td>
+        <td>${instructor}</td>
+        <td>${date}</td>
+      </tr>`;
+    });
+  });
+
+  const html = `<!doctype html>
+  <html>
+    <head>
+      <meta charset="utf-8">
+      <title>Done-Assigned Cases</title>
+      <style>
+        body{font-family:Poppins,Arial;padding:20px;color:#1f1238}
+        table{width:100%;border-collapse:collapse}
+        th,td{border:1px solid #ddd;padding:8px;text-align:left}
+        th{background:#f6f0fb}
+      </style>
+    </head>
+    <body>
+      <h2>Done-Assigned Cases</h2>
+      <table>
+        <thead>
+          <tr><th>Name</th><th>Type</th><th>Instructor</th><th>Date Completed</th></tr>
+        </thead>
+        <tbody>${rowsHtml}</tbody>
+      </table>
+    </body>
+  </html>`;
+
+  const w = window.open('', '_blank');
+  w.document.write(html);
+  w.document.close();
+  w.print();
+  showToast('Print dialog opened','success');
+}
+
+/* ---------- ARCHIVE & CLEAR DONE ASSIGNED ---------- */
+async function resetDoneAssigned() {
+  if (!confirm('Archive & clear Done-Assigned list?')) return;
+
+  const snap = await db.ref('doneAssign').get();
+  if (!snap.exists()) {
+    showToast('No Done-Assigned cases to archive','warning');
+    return;
+  }
+
+  const today = getPHDateString();  // uses your existing PH-date helper
+  const updates = {};
+
+  snap.forEach(uSnap => {
+    const uid = uSnap.key;
+    uSnap.forEach(cSnap => {
+      const c = cSnap.val();
+      const cid = cSnap.key;
+      updates[`archive/doneAssign/${today}/${uid}/${cid}`] = {
+        ...c,
+        uid,
+        archivedAt: Date.now()
+      };
+    });
+  });
+
+  await db.ref().update(updates);
+  await db.ref('doneAssign').remove();
+  showToast('✅ Done-Assigned cases archived & cleared','success');
+  loadDoneAssign();
+      }
 
   /************  SEARCH & LIVE LISTENERS  ************/
   if ($('caseSearch')) $('caseSearch').addEventListener('input', () => {
