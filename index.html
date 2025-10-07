@@ -558,15 +558,69 @@
   if($('openCases')) $('openCases').addEventListener('click', ()=>{ if(casesModal) casesModal.style.display = 'flex'; loadCases(); });
   if(closeCases) closeCases.addEventListener('click', ()=>{ if(casesModal) casesModal.style.display = 'none'; });
 
-  async function loadCases() {
-    const body = $('casesBody');
-    if(!body) return;
-    body.innerHTML = '';
-    const snap = await db.ref('cases').get();
-    if (!snap.exists()) {
-      body.innerHTML = '<tr><td colspan="6" class="muted">No cases submitted yet</td></tr>';
-      return;
-    }
+  // ===== LOAD CASES (Admin Panel) =====
+async function loadCases() {
+  const body = document.getElementById('casesBody');
+  if (!body) return;
+
+  body.innerHTML = '<tr><td colspan="6" class="muted">Loading cases...</td></tr>';
+
+  const snap = await db.ref('cases').get();
+  if (!snap.exists()) {
+    body.innerHTML = '<tr><td colspan="6" class="muted">No cases found</td></tr>';
+    return;
+  }
+
+  const rows = [];
+
+  snap.forEach(userSnap => {
+    const uid = userSnap.key;
+    userSnap.forEach(caseSnap => {
+      const caseData = caseSnap.val() || {};
+      const caseId = caseSnap.key;
+
+      // 🔹 Skip incomplete/empty data
+      if (!caseData.user || caseData.user === 'Unknown User' || caseData.case === '-' || !caseData.case) return;
+
+      rows.push({
+        uid,
+        caseId,
+        user: caseData.user,
+        caseName: caseData.case,
+        instructor: caseData.instructor || '-',
+        assignedAt: caseData.assignedAt || '-',
+        status: caseData.status || 'active'
+      });
+    });
+  });
+
+  // 🔹 Sort by latest assigned first
+  rows.sort((a, b) => (b.assignedAt || '').localeCompare(a.assignedAt || ''));
+
+  // 🔹 Display
+  if (rows.length === 0) {
+    body.innerHTML = '<tr><td colspan="6" class="muted">No valid cases found</td></tr>';
+    return;
+  }
+
+  body.innerHTML = '';
+  rows.forEach(r => {
+    const statusBadge = r.status === 'completed'
+      ? `<span class="badge completed">Completed</span>`
+      : `<span class="badge active">Active</span>`;
+
+    body.innerHTML += `
+      <tr class="${r.status === 'completed' ? 'completed-row' : ''}">
+        <td>${r.user}</td>
+        <td>${r.caseName}</td>
+        <td>${r.instructor}</td>
+        <td>${r.assignedAt}</td>
+        <td>${statusBadge}</td>
+        <td><button class="deleteBtn" onclick="deleteCase('${r.uid}', '${r.caseId}')">Delete</button></td>
+      </tr>
+    `;
+  });
+}
 
     // preload profiles
     const uids = Object.keys(snap.val() || {});
