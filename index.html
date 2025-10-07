@@ -559,78 +559,67 @@
   if(closeCases) closeCases.addEventListener('click', ()=>{ if(casesModal) casesModal.style.display = 'none'; });
 
       async function loadCases() {
-  const body = $('casesBody');
-  body.innerHTML = '';
-  const snap = await db.ref('cases').get();
-  if (!snap.exists()) {
-    body.innerHTML = '<tr><td colspan="6" class="muted">No cases submitted yet</td></tr>';
-    return;
-  }
-    
-  // preload profiles
-  const uids = Object.keys(snap.val() || {});
-  const profiles = {};
-  await Promise.all(uids.map(async uid => {
-    const pSnap = await db.ref(`users/${uid}/profile`).get();
-    profiles[uid] = pSnap.exists() ? pSnap.val() : {};
-  }));
+    const body = $('casesBody');
+    body.innerHTML = '';
+    const snap = await db.ref('cases').get();
+    if (!snap.exists()) {
+      body.innerHTML = '<tr><td colspan="6" class="muted">No cases submitted yet</td></tr>';
+      return;
+    }
 
-  const cases = [];
-  snap.forEach(uSnap => {
-    const uid = uSnap.key;
-    uSnap.forEach(cSnap => {
-      const c = cSnap.val(); 
-      const cId = cSnap.key;
+    // preload profiles
+    const uids = Object.keys(snap.val() || {});
+    const profiles = {};
+    await Promise.all(uids.map(async uid => {
+      const pSnap = await db.ref(`users/${uid}/profile`).get();
+      profiles[uid] = pSnap.exists() ? pSnap.val() : {};
+    }));
 
-      // ✅ keep both pending and completed
-      cases.push({ 
-        uid, 
-        cid: cId, 
-        ...c, 
-        profileName: profiles[uid]?.name || uid, 
-        timestamp: c.timestamp || 0 
+    const cases = [];
+    snap.forEach(uSnap => {
+      const uid = uSnap.key;
+      uSnap.forEach(cSnap => {
+        const c = cSnap.val();
+        const cId = cSnap.key;
+        if(c.status && c.status !== 'pending') return; // show only pending
+        cases.push({
+          uid, cid: cId, ...c,
+          profileName: profiles[uid]?.name || uid,
+          timestamp: c.timestamp || 0
+        });
       });
     });
-  });
 
-  // Sort by status (pending first), then by time
-  cases.sort((a, b) => {
-    if ((a.status || 'pending') !== (b.status || 'pending')) {
-      return a.status === 'completed' ? 1 : -1;
+    // Sort by timestamp (earliest first)
+    cases.sort((a,b) => (a.timestamp || 0) - (b.timestamp || 0));
+
+    if(cases.length === 0){
+      body.innerHTML = '<tr><td colspan="6" class="muted">No pending cases</td></tr>';
+      return;
     }
-    return (a.timestamp || 0) - (b.timestamp || 0);
-  });
 
-  if (cases.length === 0) {
-    body.innerHTML = '<tr><td colspan="6" class="muted">No cases found</td></tr>';
-    return;
-  }
-
-  cases.forEach(c => {
-    const realName = c.realName || c.patientName || c.profileName || c.uid;
-    const details = (c.details || '').replace(/\n/g, ' ');
-    const date = c.timestamp ? new Date(c.timestamp).toLocaleString() : '-';
-    const instructor = c.instructor || 'Pending';
-    const statusLabel = c.status === 'completed' ? '(Completed)' : '(Pending)';
-
-    body.innerHTML += `
-      <tr>
-        <td>${realName}</td>
-        <td>${c.type || '-'}</td>
-        <td style="text-align:left">${details}</td>
-        <td>${date}</td>
-        <td id="instr-${c.uid}-${c.cid}">${instructor}</td>
-        <td>
-          ${statusLabel}<br>
-          <button onclick="openWheelAssign('${c.uid}','${c.cid}')">Assign (Wheel)</button> 
-          <button onclick="promptAssignInput('${c.uid}','${c.cid}')">Assign (Input)</button> 
-          <button onclick="markCaseComplete('${c.uid}','${c.cid}')">Mark Complete</button> 
-          <button class="danger" onclick="deleteCase('${c.uid}','${c.cid}')">🗑 Delete</button>
-        </td>
-      </tr>`;
-  });
+    cases.forEach(c => {
+      const realName = c.realName || c.patientName || c.profileName || c.uid;
+      const details = (c.details || '').replace(/\n/g, ' ');
+      const date = c.timestamp ? new Date(c.timestamp).toLocaleString() : '-';
+      const instructor = c.instructor || 'Pending';
+      body.innerHTML += `
+        <tr>
+          <td>${realName}</td>
+          <td>${c.type || '-'}</td>
+          <td style="text-align:left">${details}</td>
+          <td>${date}</td>
+          <td id="instr-${c.uid}-${c.cid}">${instructor}</td>
+          <td>
+            <button onclick="openWheelAssign('${c.uid}','${c.cid}')">Assign (Wheel)</button>
+            <button onclick="promptAssignInput('${c.uid}','${c.cid}')">Assign (Input)</button>
+            <button onclick="markCaseComplete('${c.uid}','${c.cid}')">Mark Complete</button>
+          </td>
+        </tr>
+      `;
+    });
       }
-
+      
   function promptAssignInput(uid,cid){ const name = prompt('Type instructor name to assign:'); if(name && name.trim()) assignInstructorByInput(uid,cid,name.trim()); }
   async function markCaseComplete(uid, cid){ try{ await db.ref(`cases/${uid}/${cid}/status`).set('completed'); const userCaseSnap = await db.ref(`userCases/${uid}/${cid}`).get(); if(userCaseSnap.exists()) await db.ref(`userCases/${uid}/${cid}/status`).set('completed'); showToast('Case marked completed','success'); loadCases(); }catch(e){console.error(e);showToast('Failed','error');} }
 
