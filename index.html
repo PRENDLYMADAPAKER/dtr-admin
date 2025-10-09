@@ -835,43 +835,50 @@ cases.forEach(c => {
   }
     }
       
-  async function assignInstructorByInput(uid, cid, name) {
+  async function assignInstructorByInput(uid, cid, instructorName) {
   try {
-    const cSnap = await db.ref(`cases/${uid}/${cid}`).get();
-    if (!cSnap.exists()) return showToast('Case not found', 'warning');
+    const caseSnap = await db.ref(`cases/${uid}/${cid}`).get();
+    if (!caseSnap.exists()) {
+      showToast('Case not found', 'error');
+      return;
+    }
 
-    const cData = cSnap.val();
-    const realName = cData.realName || cData.patientName || cData.profileName || uid;
+    const caseData = caseSnap.val();
+    const profileSnap = await db.ref(`users/${uid}/profile`).get();
+    const profile = profileSnap.exists() ? profileSnap.val() : {};
+    const realName = profile.name || caseData.patientName || uid;
 
     const updates = {};
+    // ✅ Update case and userCases safely — never push new data
+    updates[`cases/${uid}/${cid}/instructor`] = instructorName;
+    updates[`cases/${uid}/${cid}/status`] = 'assigned';
+    updates[`cases/${uid}/${cid}/realName`] = realName;
 
-    // ✅ Update doneAssign (record for admin)
+    const userCaseSnap = await db.ref(`userCases/${uid}/${cid}`).get();
+    if (userCaseSnap.exists()) {
+      updates[`userCases/${uid}/${cid}/instructor`] = instructorName;
+      updates[`userCases/${uid}/${cid}/status`] = 'assigned';
+    }
+
+    // ✅ Add to doneAssign (only once)
     updates[`doneAssign/${uid}/${cid}`] = {
-      ...cData,
-      instructor: name,
+      ...caseData,
+      instructor: instructorName,
       status: 'assigned',
       realName,
       doneAt: Date.now()
     };
 
-    // ✅ Update admin-side case info
-    updates[`cases/${uid}/${cid}/instructor`] = name;
-    updates[`cases/${uid}/${cid}/status`] = 'assigned';
-    updates[`cases/${uid}/${cid}/realName`] = realName;
-
-    // ✅ Update user-side case info (no push, no duplicates)
-    updates[`userCases/${uid}/${cid}/instructor`] = name;
-    updates[`userCases/${uid}/${cid}/status`] = 'assigned';
-
     await db.ref().update(updates);
-
-    showToast(`Instructor "${name}" assigned successfully`, 'success');
+    showToast(`Instructor ${instructorName} assigned successfully`, 'success');
     loadCases();
-  } catch (e) {
-    console.error(e);
-    showToast('Failed to assign instructor', 'error');
+
+  } catch (err) {
+    console.error('assignInstructorByInput', err);
+    showToast('Error assigning instructor', 'error');
   }
-}
+      }
+  
 
   // listeners for live db changes will be added in Part 3 along with Done Assign functions
   
