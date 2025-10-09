@@ -798,42 +798,46 @@ cases.forEach(c => {
     const realName = profile.name || caseData.patientName || uid;
 
     const updates = {};
-    // ✅ Only update instructor info; don't overwrite existing case data
+
+    // ✅ Update admin-side case fields
     updates[`cases/${uid}/${cid}/instructor`] = name;
     updates[`cases/${uid}/${cid}/status`] = 'assigned';
     updates[`cases/${uid}/${cid}/realName`] = realName;
 
-    // ✅ Update existing userCases if it exists — no duplication
+    // ✅ Update user-side case fields — never create new
     const userCaseSnap = await db.ref(`userCases/${uid}/${cid}`).get();
     if (userCaseSnap.exists()) {
       updates[`userCases/${uid}/${cid}/instructor`] = name;
       updates[`userCases/${uid}/${cid}/status`] = 'assigned';
     }
 
-    // ✅ Record to doneAssign for admin logs only
-    updates[`doneAssign/${uid}/${cid}`] = {
-      ...caseData,
-      instructor: name,
-      status: 'assigned',
-      realName,
-      doneAt: Date.now(),
-    };
+    // ✅ Add to doneAssign only once (avoid duplication)
+    const doneSnap = await db.ref(`doneAssign/${uid}/${cid}`).get();
+    if (!doneSnap.exists()) {
+      updates[`doneAssign/${uid}/${cid}`] = {
+        ...caseData,
+        instructor: name,
+        status: 'assigned',
+        realName,
+        doneAt: Date.now()
+      };
+    }
 
     await db.ref().update(updates);
-    showToast(`Assigned ${name} — moved to Done Assign`, 'success', 2200);
 
+    showToast(`Assigned ${name} — moved to Done Assign`, 'success', 2200);
     setTimeout(() => {
       if (wheelModal) wheelModal.style.display = 'none';
       selectedCase = null;
       if ($('wheelResult')) $('wheelResult').innerText = '';
     }, 700);
+    loadCases();
 
-    loadCases(); // refresh table
   } catch (err) {
     console.error('assignInstructorToCase', err);
     showToast('Error assigning instructor', 'error');
   }
-    }
+      }
       
   async function assignInstructorByInput(uid, cid, instructorName) {
   try {
@@ -849,27 +853,33 @@ cases.forEach(c => {
     const realName = profile.name || caseData.patientName || uid;
 
     const updates = {};
-    // ✅ Update case and userCases safely — never push new data
+
+    // ✅ Update existing case fields (admin side)
     updates[`cases/${uid}/${cid}/instructor`] = instructorName;
     updates[`cases/${uid}/${cid}/status`] = 'assigned';
     updates[`cases/${uid}/${cid}/realName`] = realName;
 
+    // ✅ Update existing user case fields — never create a new one
     const userCaseSnap = await db.ref(`userCases/${uid}/${cid}`).get();
     if (userCaseSnap.exists()) {
       updates[`userCases/${uid}/${cid}/instructor`] = instructorName;
       updates[`userCases/${uid}/${cid}/status`] = 'assigned';
     }
 
-    // ✅ Add to doneAssign (only once)
-    updates[`doneAssign/${uid}/${cid}`] = {
-      ...caseData,
-      instructor: instructorName,
-      status: 'assigned',
-      realName,
-      doneAt: Date.now()
-    };
+    // ✅ Add to doneAssign only once (avoid duplication)
+    const doneSnap = await db.ref(`doneAssign/${uid}/${cid}`).get();
+    if (!doneSnap.exists()) {
+      updates[`doneAssign/${uid}/${cid}`] = {
+        ...caseData,
+        instructor: instructorName,
+        status: 'assigned',
+        realName,
+        doneAt: Date.now()
+      };
+    }
 
     await db.ref().update(updates);
+
     showToast(`Instructor ${instructorName} assigned successfully`, 'success');
     loadCases();
 
@@ -877,7 +887,7 @@ cases.forEach(c => {
     console.error('assignInstructorByInput', err);
     showToast('Error assigning instructor', 'error');
   }
-      }
+     }
   
 
   // listeners for live db changes will be added in Part 3 along with Done Assign functions
