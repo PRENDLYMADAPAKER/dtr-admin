@@ -798,52 +798,43 @@ cases.forEach(c => {
     const realName = profile.name || caseData.patientName || uid;
 
     const updates = {};
+    // ✅ Only update instructor info; don't overwrite existing case data
+    updates[`cases/${uid}/${cid}/instructor`] = name;
+    updates[`cases/${uid}/${cid}/status`] = 'assigned';
+    updates[`cases/${uid}/${cid}/realName`] = realName;
 
-    // ✅ Update Done Assign (admin record)
+    // ✅ Update existing userCases if it exists — no duplication
+    const userCaseSnap = await db.ref(`userCases/${uid}/${cid}`).get();
+    if (userCaseSnap.exists()) {
+      updates[`userCases/${uid}/${cid}/instructor`] = name;
+      updates[`userCases/${uid}/${cid}/status`] = 'assigned';
+    }
+
+    // ✅ Record to doneAssign for admin logs only
     updates[`doneAssign/${uid}/${cid}`] = {
       ...caseData,
       instructor: name,
       status: 'assigned',
       realName,
-      doneAt: Date.now()
+      doneAt: Date.now(),
     };
 
-    // ✅ Update Admin Panel’s Case info
-    updates[`cases/${uid}/${cid}/instructor`] = name;
-    updates[`cases/${uid}/${cid}/status`] = 'assigned';
-    updates[`cases/${uid}/${cid}/realName`] = realName;
-
-    // ✅ Update existing User Panel Case (no duplicate)
-    const userCaseSnap = await db.ref(`userCases/${uid}/${cid}`).get();
-    if (userCaseSnap.exists()) {
-      updates[`userCases/${uid}/${cid}/instructor`] = name;
-      updates[`userCases/${uid}/${cid}/status`] = 'assigned';
-    } else {
-      // If not yet in userCases, create it once (for backward compatibility)
-      updates[`userCases/${uid}/${cid}`] = {
-        ...caseData,
-        instructor: name,
-        status: 'assigned',
-        realName
-      };
-    }
-
     await db.ref().update(updates);
-
     showToast(`Assigned ${name} — moved to Done Assign`, 'success', 2200);
+
     setTimeout(() => {
       if (wheelModal) wheelModal.style.display = 'none';
       selectedCase = null;
       if ($('wheelResult')) $('wheelResult').innerText = '';
     }, 700);
 
-    loadCases(); // refresh list
+    loadCases(); // refresh table
   } catch (err) {
     console.error('assignInstructorToCase', err);
     showToast('Error assigning instructor', 'error');
   }
-}
-
+    }
+      
   async function assignInstructorByInput(uid, cid, name) {
   try {
     const cSnap = await db.ref(`cases/${uid}/${cid}`).get();
